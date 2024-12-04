@@ -3,6 +3,7 @@ import requests
 from dotenv import load_dotenv
 from time import sleep
 from datetime import datetime, timezone
+from collections import Counter
 
 PLATFORM_TO_GLOBAL = {
     "na1": "americas",
@@ -18,6 +19,9 @@ PLATFORM_TO_GLOBAL = {
     "oc1": "sea",
 }
 
+
+season_start_date = datetime(2024, 9, 25)
+season_start_timestamp = int(season_start_date.timestamp() * 1000)
 
 # Load environment variables
 load_dotenv()
@@ -92,26 +96,26 @@ def get_user_match_details(puuid, match_id, region="americas"):
             champion_name = user_participant.get("championName", "Unknown")
             champion_icon = get_champion_icon(champion_name)
 
-            # Calculate total CS (lane + jungle farm)
-            total_cs = user_participant.get("totalMinionsKilled", 0) + user_participant.get("neutralMinionsKilled", 0)
+            # Safe access to game_start_timestamp and game_end_timestamp
+            game_start_timestamp = match_data["info"].get("gameStartTimestamp", None)
+            game_end_timestamp = match_data["info"].get("gameEndTimestamp", None)
 
             # Construct match details
             match_details = {
                 "match_id": match_id,
                 "game_mode": match_data["info"].get("gameMode", "Unknown"),
                 "game_duration": match_data["info"].get("gameDuration", 0) // 60,  # Convert seconds to minutes
-                "game_time_ago": calculate_time_ago(match_data["info"].get("gameEndTimestamp")),
+                "game_start_timestamp": game_start_timestamp,  # Include gameStartTimestamp
                 "user_data": {
                     "championName": champion_name,
                     "champion_icon": champion_icon,
                     "kills": user_participant.get("kills", 0),
                     "deaths": user_participant.get("deaths", 0),
                     "assists": user_participant.get("assists", 0),
-                    "totalMinionsKilled": total_cs,  # Use the calculated total CS
+                    "totalMinionsKilled": user_participant.get("totalMinionsKilled", 0),
                     "win": user_participant.get("win", False),
                 },
             }
-            print(f"Match Details for {match_id}:", match_details)  # Debug output
             return match_details
         else:
             print(f"No participant found for PUUID {puuid} in match {match_id}.")
@@ -127,32 +131,43 @@ def get_user_match_details(puuid, match_id, region="americas"):
 
 
 
+
+
+
 def get_most_played_champions(match_details, puuid):
     """
     Calculate the most played champions with win rates based on the match details.
+    This will return the top 6 champions by games played, considering only the current season.
     """
     from collections import Counter
 
     champion_stats = Counter()
     champion_wins = Counter()
 
+    # Filter out matches before the current season (Sept 25, 2024)
     for match in match_details:
-        participant = match.get("user_data", {})
-        if participant:
-            champion_name = participant.get("championName")
-            champion_stats[champion_name] += 1
-            if participant.get("win"):
-                champion_wins[champion_name] += 1
+        match_start_timestamp = match.get("game_start_timestamp")  # gameStartTimestamp is used here
+        if match_start_timestamp and match_start_timestamp >= season_start_timestamp:  # Filter by season start
+            participant = match.get("user_data", {})
+            if participant:
+                champion_name = participant.get("championName")
+                champion_stats[champion_name] += 1
+                if participant.get("win"):
+                    champion_wins[champion_name] += 1
 
+    # Get the top 6 champions by games played
     most_played = [
         {
             "champion": champ,
             "games_played": count,
-            "winrate": f"{round((champion_wins[champ] / count) * 100, 2)}%"
+            "winrate": f"{round((champion_wins[champ] / count) * 100, 2)}%" if count > 0 else "0%"
         }
-        for champ, count in champion_stats.most_common(5)
+        for champ, count in champion_stats.most_common(6)
     ]
     return most_played
+
+
+
 
 def get_summoner_ranked_stats(summoner_id, region="na1"):
     """
@@ -279,6 +294,9 @@ def get_champion_icon(champion_name):
 
 
 def calculate_time_ago(game_end_timestamp):
+    if not game_end_timestamp:
+        return "Unknown"
+
     now = datetime.now(timezone.utc)
     game_time = datetime.fromtimestamp(game_end_timestamp / 1000, tz=timezone.utc)
     time_difference = now - game_time
@@ -291,3 +309,31 @@ def calculate_time_ago(game_end_timestamp):
     else:
         minutes = time_difference.seconds // 60
         return f"{minutes} minutes ago"
+
+def get_all_matches_since_season(puuid, region="americas", season_start_timestamp=None):
+    """
+    Fetch all match history for the user since the season start, using pagination.
+    """
+    all_matches = []
+    start = 0
+    count = 100  # Riot API supports 100 matches per request
+    while True:
+        # Fetch the match IDs
+        match_ids = get_match_history_paged(puuid, start=start, count=count, region=region)
+        
+        if not match_ids:  # If no more matches are available, stop
+            break
+
+        # Fetch match details for each match
+        for match_id in match_ids:
+            match_details = get_user_match_details(puuid, match_id, region)
+            
+            if match_details:
+                # Check if the match is from the current season
+                game_start_timestamp = match_details.get("game_start_timestamp")
+                if game_start_timestamp and game_start_timestamp >= season_start_timestamp:
+                    all_matches.append(match_details)
+
+        start += count  # Move to the next page of matches
+
+    return all_matches
