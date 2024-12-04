@@ -99,6 +99,12 @@ def get_user_match_details(puuid, match_id, region="americas"):
             # Safe access to game_start_timestamp and game_end_timestamp
             game_start_timestamp = match_data["info"].get("gameStartTimestamp", None)
             game_end_timestamp = match_data["info"].get("gameEndTimestamp", None)
+            
+            total_minions_killed = user_participant.get("totalMinionsKilled", 0)
+            neutral_minions_killed = user_participant.get("neutralMinionsKilled", 0)
+
+            # Sum lane minions and neutral minions for total CS
+            total_cs = total_minions_killed + neutral_minions_killed
 
             # Construct match details
             match_details = {
@@ -112,7 +118,7 @@ def get_user_match_details(puuid, match_id, region="americas"):
                     "kills": user_participant.get("kills", 0),
                     "deaths": user_participant.get("deaths", 0),
                     "assists": user_participant.get("assists", 0),
-                    "totalMinionsKilled": user_participant.get("totalMinionsKilled", 0),
+                    "totalCS": total_cs,  # Corrected CS calculation
                     "win": user_participant.get("win", False),
                 },
             }
