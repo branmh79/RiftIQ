@@ -3,126 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Summoner Information</title>
+    <title>Summoner Profile</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
+            font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #f4f4f4;
+            background: linear-gradient(135deg, #1d3557, #457b9d, #1d3557);
+            color: #ffffff;
         }
+
         .container {
             display: flex;
             flex-direction: row;
             gap: 20px;
         }
+
         .left-section, .right-section {
-            padding: 10px;
-            background: #ffffff;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 15px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
         }
+
         .left-section {
             flex: 1;
         }
+
         .right-section {
             flex: 3;
-            max-height: 600px;
-            overflow-y: auto;
         }
-        .match-container {
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
+
+        .profile-card, .rank-card {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
         }
-        .match-container.win {
-            background-color: #d4edda; /* Light green for victory */
-            border-color: #c3e6cb;
+
+        .profile-card h2, .rank-card h2 {
+            margin-bottom: 10px;
         }
-        .match-container.loss {
-            background-color: #f8d7da; /* Light red for loss */
-            border-color: #f5c6cb;
-        }
-        .match-header {
-            cursor: pointer;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        .match-details {
-            display: none;
-            margin-top: 10px;
-        }
-        .champion-list {
+
+        .champion-list, .match-details ul {
             list-style: none;
             padding: 0;
         }
-        .champion-list li {
+
+        .champion-list li, .match-container {
             margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
             padding: 10px;
-            background-color: #f9f9f9;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.1);
         }
+
         .champion-list li strong {
             display: block;
             margin-bottom: 5px;
         }
-        .load-more-button {
-            display: block;
-            margin: 20px auto;
+
+        .match-container.win {
+            background-color: rgba(72, 239, 128, 0.2);
+        }
+
+        .match-container.loss {
+            background-color: rgba(239, 72, 72, 0.2);
+        }
+
+        .match-header {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .match-details {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .load-more {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .load-more button {
+            background-color: #e63946;
+            color: white;
             padding: 10px 20px;
-            font-size: 16px;
-            color: #fff;
-            background-color: #007bff;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            text-align: center;
         }
-        .load-more-button:hover {
-            background-color: #0056b3;
+
+        .load-more button:hover {
+            background-color: #d62828;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .loading-spinner.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
     <script>
-        let startIndex = 20; // Starting index for loading matches
+        let startIndex = 20;
         let isLoading = false;
 
         async function loadMoreMatches() {
             if (isLoading) return;
             isLoading = true;
-
+        
+            const spinner = document.querySelector(".loading-spinner");
+            spinner.classList.add("active");
+        
+            // Fetch the region from a hidden input or data attribute if needed
+            const region = "{{ region }}" || "na1"; // Default to "na1" if the region is empty
+        
+            const payload = {
+                game_name: "{{ riot_id.gameName }}",
+                tag_line: "{{ riot_id.tagLine }}",
+                start: startIndex,
+                region: region.trim()
+            };
+        
+            console.log("Payload for load_more:", payload);
+        
             const response = await fetch("/load_more", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    game_name: "{{ summoner_info.gameName }}",
-                    tag_line: "{{ summoner_info.tagLine }}",
-                    start: startIndex
-                })
+                body: JSON.stringify(payload)
             });
-
+        
             if (response.ok) {
                 const data = await response.json();
                 appendMatches(data.user_match_details);
                 startIndex += data.user_match_details.length;
+            } else {
+                console.error("Error loading more matches:", await response.json());
             }
-
+        
+            spinner.classList.remove("active");
             isLoading = false;
         }
+        
+        
+        
 
         function appendMatches(matches) {
             const container = document.querySelector(".right-section");
-            matches.forEach((match, index) => {
+            const loadMoreContainer = document.querySelector(".load-more");
+            matches.forEach(match => {
                 const matchDiv = document.createElement("div");
                 matchDiv.className = `match-container ${match.user_data.win ? "win" : "loss"}`;
                 matchDiv.innerHTML = `
-                    <div class="match-header" onclick="toggleDetails(${startIndex + index})">
+                    <div class="match-header" onclick="toggleDetails(${startIndex})">
                         <span>Game Mode: ${match.game_mode}</span> | 
                         <span>Duration: ${match.game_duration} minutes</span>
                     </div>
-                    <div class="match-details" id="match-details-${startIndex + index}" style="display: none;">
+                    <div class="match-details" id="match-details-${startIndex}" style="display: none;">
                         <ul>
                             <li><strong>Champion:</strong> ${match.user_data.championName}</li>
                             <li><strong>K/D/A:</strong> ${match.user_data.kills}/${match.user_data.deaths}/${match.user_data.assists}</li>
@@ -132,7 +195,7 @@
                         </ul>
                     </div>
                 `;
-                container.insertBefore(matchDiv, document.getElementById("load-more-container"));
+                container.insertBefore(matchDiv, loadMoreContainer);
             });
         }
 
@@ -147,13 +210,32 @@
     </script>
 </head>
 <body>
-    <h1>Summoner Information</h1>
-    <p><strong>Game Name:</strong> {{ summoner_info.gameName }}</p>
-    <p><strong>Tagline:</strong> {{ summoner_info.tagLine }}</p>
+    <h1>Summoner Profile</h1>
 
     <div class="container">
-        <!-- Left Section: Most Played Champions -->
+        <!-- Left Section -->
         <div class="left-section">
+            <!-- Profile Card -->
+            <div class="profile-card">
+                <h2>Riot ID</h2>
+                <p><strong>Riot ID:</strong> {{ riot_id.gameName }}#{{ riot_id.tagLine }}</p>
+                <p><strong>Summoner Level:</strong> {{ summoner_info.summonerLevel }}</p>
+            </div>
+            
+            <div class="rank-card">
+                <h2>Ranked Stats</h2>
+                {% if ranked_stats %}
+                <p><strong>Rank:</strong> {{ ranked_stats.tier }} {{ ranked_stats.rank }}</p>
+                <p><strong>League Points:</strong> {{ ranked_stats.leaguePoints }}</p>
+                <p><strong>Wins:</strong> {{ ranked_stats.wins }}</p>
+                <p><strong>Losses:</strong> {{ ranked_stats.losses }}</p>
+                <p><strong>Win Rate:</strong> {{ (ranked_stats.wins / (ranked_stats.wins + ranked_stats.losses) * 100) | round(2) }}%</p>
+                {% else %}
+                <p>No ranked stats available for RANKED_SOLO_5x5.</p>
+                {% endif %}
+            </div>
+
+            <!-- Most Played Champions -->
             <h2>Most Played Champions</h2>
             {% if most_played_champions %}
             <ul class="champion-list">
@@ -170,16 +252,16 @@
             {% endif %}
         </div>
 
-        <!-- Right Section: Match History -->
+        <!-- Right Section -->
         <div class="right-section">
             <h2>Match History</h2>
             {% for match in user_match_details %}
             <div class="match-container {% if match.user_data.win %}win{% else %}loss{% endif %}">
                 <div class="match-header" onclick="toggleDetails({{ loop.index0 }})">
-                    <span>Game Mode: {{ match.game_mode }}</span> | <span>Duration: {{ match.game_duration }} minutes</span>
+                    <span>Game Mode: {{ match.game_mode }}</span> | 
+                    <span>Duration: {{ match.game_duration }} minutes</span>
                 </div>
                 <div class="match-details" id="match-details-{{ loop.index0 }}">
-                    <h4>Performance:</h4>
                     <ul>
                         <li><strong>Champion:</strong> {{ match.user_data.championName }}</li>
                         <li><strong>K/D/A:</strong> {{ match.user_data.kills }}/{{ match.user_data.deaths }}/{{ match.user_data.assists }}</li>
@@ -190,12 +272,18 @@
                 </div>
             </div>
             {% endfor %}
-            <div id="load-more-container">
-                <button class="load-more-button" onclick="loadMoreMatches()">Load More</button>
+
+            <!-- Load More Button -->
+            <div class="load-more">
+                <button onclick="loadMoreMatches()">Load More</button>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading more matches...</p>
             </div>
         </div>
     </div>
-
-    <a href="/">Back to Home</a>
 </body>
 </html>
