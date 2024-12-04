@@ -5,7 +5,6 @@ from riot_client import (
     get_match_history_paged,
     get_user_match_details,
     get_most_played_champions,
-    get_summoner_ranked_stats,
     get_ranked_stats_by_summoner_id,
     get_summoner_info_by_puuid,
 )
