@@ -2,6 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from time import sleep
+from datetime import datetime, timezone
 
 PLATFORM_TO_GLOBAL = {
     "na1": "americas",
@@ -81,20 +82,50 @@ def get_user_match_details(puuid, match_id, region="americas"):
         response.raise_for_status()
         match_data = response.json()
 
+        # Locate the participant data for the given PUUID
         user_participant = next(
             (p for p in match_data["info"]["participants"] if p["puuid"] == puuid), None
         )
-        return {
-            "match_id": match_id,
-            "game_mode": match_data["info"]["gameMode"],
-            "game_duration": match_data["info"]["gameDuration"] // 60,
-            "user_data": user_participant,
-        } if user_participant else None
+
+        if user_participant:
+            # Format champion name and retrieve champion icon URL
+            champion_name = user_participant.get("championName", "Unknown")
+            champion_icon = get_champion_icon(champion_name)
+
+            # Calculate total CS (lane + jungle farm)
+            total_cs = user_participant.get("totalMinionsKilled", 0) + user_participant.get("neutralMinionsKilled", 0)
+
+            # Construct match details
+            match_details = {
+                "match_id": match_id,
+                "game_mode": match_data["info"].get("gameMode", "Unknown"),
+                "game_duration": match_data["info"].get("gameDuration", 0) // 60,  # Convert seconds to minutes
+                "game_time_ago": calculate_time_ago(match_data["info"].get("gameEndTimestamp")),
+                "user_data": {
+                    "championName": champion_name,
+                    "champion_icon": champion_icon,
+                    "kills": user_participant.get("kills", 0),
+                    "deaths": user_participant.get("deaths", 0),
+                    "assists": user_participant.get("assists", 0),
+                    "totalMinionsKilled": total_cs,  # Use the calculated total CS
+                    "win": user_participant.get("win", False),
+                },
+            }
+            print(f"Match Details for {match_id}:", match_details)  # Debug output
+            return match_details
+        else:
+            print(f"No participant found for PUUID {puuid} in match {match_id}.")
+            return None
+
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
+        print(f"HTTP error occurred: {http_err} - {response.text}")
     except Exception as err:
         print(f"An error occurred: {err}")
     return None
+
+
+
+
 
 def get_most_played_champions(match_details, puuid):
     """
@@ -234,3 +265,29 @@ def get_riot_id_by_puuid(puuid, region="americas"):
         print(f"An error occurred: {err}")
     return None
 
+
+def get_champion_icon(champion_name):
+    """
+    Fetch the URL for a champion icon from Data Dragon.
+    """
+    # Replace with the current patch version
+    patch_version = "14.23.1"
+    # Format champion name for Data Dragon (e.g., special cases like "Fiddlesticks" -> "FiddleSticks")
+    formatted_champion_name = champion_name.replace(" ", "").replace("'", "")
+    return f"http://ddragon.leagueoflegends.com/cdn/{patch_version}/img/champion/{formatted_champion_name}.png"
+
+
+
+def calculate_time_ago(game_end_timestamp):
+    now = datetime.now(timezone.utc)
+    game_time = datetime.fromtimestamp(game_end_timestamp / 1000, tz=timezone.utc)
+    time_difference = now - game_time
+
+    if time_difference.days > 0:
+        return f"{time_difference.days} days ago"
+    elif time_difference.seconds >= 3600:
+        hours = time_difference.seconds // 3600
+        return f"{hours} hours ago"
+    else:
+        minutes = time_difference.seconds // 60
+        return f"{minutes} minutes ago"

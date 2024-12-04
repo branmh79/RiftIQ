@@ -8,7 +8,6 @@ from riot_client import (
     get_summoner_ranked_stats,
     get_ranked_stats_by_summoner_id,
     get_summoner_info_by_puuid,
-    get_riot_id_by_puuid
 )
 
 app = Flask(__name__)
@@ -16,6 +15,7 @@ app = Flask(__name__)
 @app.route("/")
 def home():
     return render_template("home.html")
+
 
 @app.route("/search", methods=["POST"])
 def search():
@@ -25,7 +25,7 @@ def search():
 
     try:
         # Fetch account info
-        account_info = get_account_by_riot_id(game_name, tag_line)
+        account_info = get_account_by_riot_id(game_name, tag_line, region)
         print("Account Info:", account_info)
 
         if not account_info or "puuid" not in account_info:
@@ -66,12 +66,11 @@ def search():
             ranked_stats=ranked_stats,
             user_match_details=user_match_details,
             most_played_champions=most_played_champions,
+            region=region
         )
     except Exception as e:
         print("Error in search:", e)
         return render_template("error.html", error=str(e)), 400
-
-
 
 
 @app.route("/load_more", methods=["POST"])
@@ -91,9 +90,6 @@ def load_more_matches():
             raise ValueError("Missing required parameters: game_name or tag_line")
 
         # Fetch summoner info by Riot ID
-        riot_id = {"gameName": game_name, "tagLine": tag_line}
-        print("Riot ID for load_more:", riot_id)
-
         account_info = get_account_by_riot_id(game_name, tag_line, region)
         if not account_info or "puuid" not in account_info:
             raise Exception("Failed to fetch valid account information.")
@@ -115,9 +111,6 @@ def load_more_matches():
     except Exception as e:
         print("Error in load_more_matches:", e)
         return jsonify({"error": str(e)}), 400
-
-
-
 
 
 if __name__ == "__main__":
