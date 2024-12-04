@@ -28,6 +28,8 @@
         }
         .right-section {
             flex: 3;
+            max-height: 600px;
+            overflow-y: auto;
         }
         .match-container {
             border: 1px solid #ddd;
@@ -57,10 +59,83 @@
             padding: 0;
         }
         .champion-list li {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .champion-list li strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .load-more-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .load-more-button:hover {
+            background-color: #0056b3;
         }
     </style>
     <script>
+        let startIndex = 20; // Starting index for loading matches
+        let isLoading = false;
+
+        async function loadMoreMatches() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const response = await fetch("/load_more", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    game_name: "{{ summoner_info.gameName }}",
+                    tag_line: "{{ summoner_info.tagLine }}",
+                    start: startIndex
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                appendMatches(data.user_match_details);
+                startIndex += data.user_match_details.length;
+            }
+
+            isLoading = false;
+        }
+
+        function appendMatches(matches) {
+            const container = document.querySelector(".right-section");
+            matches.forEach((match, index) => {
+                const matchDiv = document.createElement("div");
+                matchDiv.className = `match-container ${match.user_data.win ? "win" : "loss"}`;
+                matchDiv.innerHTML = `
+                    <div class="match-header" onclick="toggleDetails(${startIndex + index})">
+                        <span>Game Mode: ${match.game_mode}</span> | 
+                        <span>Duration: ${match.game_duration} minutes</span>
+                    </div>
+                    <div class="match-details" id="match-details-${startIndex + index}" style="display: none;">
+                        <ul>
+                            <li><strong>Champion:</strong> ${match.user_data.championName}</li>
+                            <li><strong>K/D/A:</strong> ${match.user_data.kills}/${match.user_data.deaths}/${match.user_data.assists}</li>
+                            <li><strong>Gold Earned:</strong> ${match.user_data.goldEarned}</li>
+                            <li><strong>Damage Dealt:</strong> ${match.user_data.totalDamageDealt}</li>
+                            <li><strong>Vision Score:</strong> ${match.user_data.visionScore}</li>
+                        </ul>
+                    </div>
+                `;
+                container.insertBefore(matchDiv, document.getElementById("load-more-container"));
+            });
+        }
+
         function toggleDetails(index) {
             const details = document.getElementById(`match-details-${index}`);
             if (details.style.display === "none" || details.style.display === "") {
@@ -84,7 +159,7 @@
             <ul class="champion-list">
                 {% for champion in most_played_champions %}
                 <li>
-                    <strong>{{ champion.champion }}</strong><br>
+                    <strong>{{ champion.champion }}</strong>
                     Games Played: {{ champion.games_played }}<br>
                     Winrate: {{ champion.winrate }}
                 </li>
@@ -115,6 +190,9 @@
                 </div>
             </div>
             {% endfor %}
+            <div id="load-more-container">
+                <button class="load-more-button" onclick="loadMoreMatches()">Load More</button>
+            </div>
         </div>
     </div>
 
