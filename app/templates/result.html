@@ -3,11 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Summoner Info</title>
+    <title>Summoner Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+        }
+        .left-section, .right-section {
+            padding: 10px;
+            background: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .left-section {
+            flex: 1;
+        }
+        .right-section {
+            flex: 3;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .match-container {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .match-container.win {
+            background-color: #d4edda; /* Light green for victory */
+            border-color: #c3e6cb;
+        }
+        .match-container.loss {
+            background-color: #f8d7da; /* Light red for loss */
+            border-color: #f5c6cb;
+        }
+        .match-header {
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .match-details {
+            display: none;
+            margin-top: 10px;
+        }
+        .champion-list {
+            list-style: none;
+            padding: 0;
+        }
+        .champion-list li {
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .champion-list li strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .load-more-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .load-more-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <script>
+        let startIndex = 20; // Starting index for loading matches
+        let isLoading = false;
+
+        async function loadMoreMatches() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const response = await fetch("/load_more", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    game_name: "{{ summoner_info.gameName }}",
+                    tag_line: "{{ summoner_info.tagLine }}",
+                    start: startIndex
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                appendMatches(data.user_match_details);
+                startIndex += data.user_match_details.length;
+            }
+
+            isLoading = false;
+        }
+
+        function appendMatches(matches) {
+            const container = document.querySelector(".right-section");
+            matches.forEach((match, index) => {
+                const matchDiv = document.createElement("div");
+                matchDiv.className = `match-container ${match.user_data.win ? "win" : "loss"}`;
+                matchDiv.innerHTML = `
+                    <div class="match-header" onclick="toggleDetails(${startIndex + index})">
+                        <span>Game Mode: ${match.game_mode}</span> | 
+                        <span>Duration: ${match.game_duration} minutes</span>
+                    </div>
+                    <div class="match-details" id="match-details-${startIndex + index}" style="display: none;">
+                        <ul>
+                            <li><strong>Champion:</strong> ${match.user_data.championName}</li>
+                            <li><strong>K/D/A:</strong> ${match.user_data.kills}/${match.user_data.deaths}/${match.user_data.assists}</li>
+                            <li><strong>Gold Earned:</strong> ${match.user_data.goldEarned}</li>
+                            <li><strong>Damage Dealt:</strong> ${match.user_data.totalDamageDealt}</li>
+                            <li><strong>Vision Score:</strong> ${match.user_data.visionScore}</li>
+                        </ul>
+                    </div>
+                `;
+                container.insertBefore(matchDiv, document.getElementById("load-more-container"));
+            });
+        }
+
+        function toggleDetails(index) {
+            const details = document.getElementById(`match-details-${index}`);
+            if (details.style.display === "none" || details.style.display === "") {
+                details.style.display = "block";
+            } else {
+                details.style.display = "none";
+            }
+        }
+    </script>
 </head>
 <body>
     <h1>Summoner Information</h1>
-    <pre>{{ summoner_info | tojson(indent=4) }}</pre>
+    <p><strong>Game Name:</strong> {{ summoner_info.gameName }}</p>
+    <p><strong>Tagline:</strong> {{ summoner_info.tagLine }}</p>
+
+    <div class="container">
+        <!-- Left Section: Most Played Champions -->
+        <div class="left-section">
+            <h2>Most Played Champions</h2>
+            {% if most_played_champions %}
+            <ul class="champion-list">
+                {% for champion in most_played_champions %}
+                <li>
+                    <strong>{{ champion.champion }}</strong>
+                    Games Played: {{ champion.games_played }}<br>
+                    Winrate: {{ champion.winrate }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p>No data available.</p>
+            {% endif %}
+        </div>
+
+        <!-- Right Section: Match History -->
+        <div class="right-section">
+            <h2>Match History</h2>
+            {% for match in user_match_details %}
+            <div class="match-container {% if match.user_data.win %}win{% else %}loss{% endif %}">
+                <div class="match-header" onclick="toggleDetails({{ loop.index0 }})">
+                    <span>Game Mode: {{ match.game_mode }}</span> | <span>Duration: {{ match.game_duration }} minutes</span>
+                </div>
+                <div class="match-details" id="match-details-{{ loop.index0 }}">
+                    <h4>Performance:</h4>
+                    <ul>
+                        <li><strong>Champion:</strong> {{ match.user_data.championName }}</li>
+                        <li><strong>K/D/A:</strong> {{ match.user_data.kills }}/{{ match.user_data.deaths }}/{{ match.user_data.assists }}</li>
+                        <li><strong>Gold Earned:</strong> {{ match.user_data.goldEarned }}</li>
+                        <li><strong>Damage Dealt:</strong> {{ match.user_data.totalDamageDealt }}</li>
+                        <li><strong>Vision Score:</strong> {{ match.user_data.visionScore }}</li>
+                    </ul>
+                </div>
+            </div>
+            {% endfor %}
+            <div id="load-more-container">
+                <button class="load-more-button" onclick="loadMoreMatches()">Load More</button>
+            </div>
+        </div>
+    </div>
+
     <a href="/">Back to Home</a>
 </body>
 </html>
