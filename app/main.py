@@ -7,6 +7,7 @@ from riot_client import (
     get_most_played_champions,
     get_ranked_stats_by_summoner_id,
     get_summoner_info_by_puuid,
+    get_mmr_estimate,
 )
 
 app = Flask(__name__)
@@ -21,7 +22,6 @@ def search():
     game_name = request.form["game_name"]
     tag_line = request.form["tag_line"]
     region = request.form.get("region", "na1")  # Default to NA1 if not specified
-
     try:
         # Fetch account info
         account_info = get_account_by_riot_id(game_name, tag_line, region)
@@ -58,6 +58,9 @@ def search():
         # Calculate most played champions
         most_played_champions = get_most_played_champions(user_match_details, summoner_info["puuid"])
 
+        # Fetch MMR Estimate
+        mmr_data = get_mmr_estimate(game_name, tag_line, region)
+
         return render_template(
             "result.html",
             riot_id={"gameName": game_name, "tagLine": tag_line},
@@ -65,11 +68,13 @@ def search():
             ranked_stats=ranked_stats,
             user_match_details=user_match_details,
             most_played_champions=most_played_champions,
-            region=region
+            region=region,
+            mmr_data=mmr_data  # Pass MMR data to the template
         )
     except Exception as e:
         print("Error in search:", e)
         return render_template("error.html", error=str(e)), 400
+
 
 
 @app.route("/load_more", methods=["POST"])
@@ -110,7 +115,6 @@ def load_more_matches():
     except Exception as e:
         print("Error in load_more_matches:", e)
         return jsonify({"error": str(e)}), 400
-
 
 if __name__ == "__main__":
     app.run(debug=True)

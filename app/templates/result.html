@@ -8,7 +8,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 20px 360px;
             background: linear-gradient(135deg, #1d3557, #457b9d, #1d3557);
             color: #ffffff;
         }
@@ -16,15 +16,16 @@
         .container {
             display: flex;
             flex-direction: row;
-            gap: 20px;
+            gap: 10px;
+            padding 0 100px;
         }
 
         .left-section {
-            padding: 15px;
+            padding: 20px;
             background: rgba(0, 0, 0, 0.85);
             border-radius: 15px;
             box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
-            flex: 1;
+            flex: 1.5;
         }
 
         .right-section {
@@ -179,6 +180,7 @@
                 <h2>Ranked Stats</h2>
                 {% if ranked_stats %}
                 <p><strong>Rank:</strong> {{ ranked_stats.tier }} {{ ranked_stats.rank }}</p>
+                <p><strong>MMR:</strong> {{ mmr_data.estimated_mmr or 'N/A' }} (Estimated)</p>
                 <p><strong>Wins:</strong> {{ ranked_stats.wins }}</p>
                 <p><strong>Losses:</strong> {{ ranked_stats.losses }}</p>
                 <p><strong>Win Rate:</strong> {{ (ranked_stats.wins / (ranked_stats.wins + ranked_stats.losses) * 100) | round(2) }}%</p>
@@ -186,7 +188,7 @@
                 <p>No ranked stats available.</p>
                 {% endif %}
             </div>
-
+            
             <!-- New Card for Most Played Champions -->
             <div class="champion-stats-card">
                 <h2>Recently Played Champions</h2>
@@ -301,7 +303,7 @@
                     <div class="match-details">
                         <p><strong>Champion:</strong> ${match.user_data.championName}</p>
                         <p><strong>K/D/A:</strong> ${match.user_data.kills}/${match.user_data.deaths}/${match.user_data.assists}</p>
-                        <p><strong>CS:</strong> ${match.user_data.totalMinionsKilled}</p>
+                        <p><strong>CS:</strong> ${match.user_data.totalCS}</p>
                         <p><strong>Played:</strong> ${match.game_time_ago}</p>
                         <p><strong>Game Mode:</strong> ${match.game_mode}</p>
                         <p><strong>Duration:</strong> ${match.game_duration} minutes</p>

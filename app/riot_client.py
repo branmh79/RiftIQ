@@ -19,7 +19,6 @@ PLATFORM_TO_GLOBAL = {
     "oc1": "sea",
 }
 
-
 season_start_date = datetime(2024, 9, 25)
 season_start_timestamp = int(season_start_date.timestamp() * 1000)
 
@@ -50,10 +49,6 @@ def get_account_by_riot_id(game_name, tag_line, region="na1"):
     except Exception as err:
         print(f"An error occurred: {err}")
     return None
-
-
-
-
 
 
 def get_match_history_paged(puuid, start=0, count=20, region="americas"):
@@ -99,6 +94,7 @@ def get_user_match_details(puuid, match_id, region="americas"):
             # Safe access to game_start_timestamp and game_end_timestamp
             game_start_timestamp = match_data["info"].get("gameStartTimestamp", None)
             game_end_timestamp = match_data["info"].get("gameEndTimestamp", None)
+            game_time_ago = calculate_time_ago(game_end_timestamp)
             
             total_minions_killed = user_participant.get("totalMinionsKilled", 0)
             neutral_minions_killed = user_participant.get("neutralMinionsKilled", 0)
@@ -112,6 +108,7 @@ def get_user_match_details(puuid, match_id, region="americas"):
                 "game_mode": match_data["info"].get("gameMode", "Unknown"),
                 "game_duration": match_data["info"].get("gameDuration", 0) // 60,  # Convert seconds to minutes
                 "game_start_timestamp": game_start_timestamp,  # Include gameStartTimestamp
+                "game_time_ago": game_time_ago,
                 "user_data": {
                     "championName": champion_name,
                     "champion_icon": champion_icon,
@@ -132,12 +129,6 @@ def get_user_match_details(puuid, match_id, region="americas"):
     except Exception as err:
         print(f"An error occurred: {err}")
     return None
-
-
-
-
-
-
 
 
 def get_most_played_champions(match_details, puuid):
@@ -172,54 +163,6 @@ def get_most_played_champions(match_details, puuid):
     ]
     return most_played
 
-
-
-
-def get_summoner_ranked_stats(summoner_id, region="na1"):
-    """
-    Fetches the current rank and win/loss ratio for the summoner.
-
-    Args:
-        summoner_id (str): The encrypted summoner ID.
-        region (str): The region for the league endpoint.
-
-    Returns:
-        dict: Ranked stats including rank, tier, and win/loss ratio.
-    """
-    url = f"https://{region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{summoner_id}"
-    headers = {"X-Riot-Token": RIOT_API_KEY}
-
-    try:
-        # Fetch data from Riot API
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        ranked_stats = response.json()
-
-        # Debugging: Print the response for verification
-        print("Ranked Stats API Response:", ranked_stats)
-
-        # Look for ranked solo queue stats
-        solo_queue_stats = next(
-            (entry for entry in ranked_stats if entry.get("queueType") == "RANKED_SOLO_5x5"), None
-        )
-
-        if solo_queue_stats:
-            return {
-                "tier": solo_queue_stats.get("tier"),
-                "rank": solo_queue_stats.get("rank"),
-                "leaguePoints": solo_queue_stats.get("leaguePoints"),
-                "wins": solo_queue_stats.get("wins"),
-                "losses": solo_queue_stats.get("losses"),
-            }
-        else:
-            # No solo queue stats available
-            print("No ranked solo queue data found.")
-            return None
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err} - {response.text}")
-    except Exception as err:
-        print(f"An error occurred: {err}")
-    return None
 
 def get_ranked_stats_by_summoner_id(summoner_id, region="na1"):
     """
@@ -260,33 +203,6 @@ def get_summoner_info_by_puuid(puuid, region="na1"):
     return None
 
 
-def get_riot_id_by_puuid(puuid, region="americas"):
-    """
-    Fetch Riot ID (gameName + tagLine) using the player's PUUID.
-
-    Args:
-        puuid (str): The player's PUUID.
-        region (str): The account region (e.g., 'americas').
-
-    Returns:
-        dict: Contains 'gameName' and 'tagLine'.
-    """
-    url = f"https://{region}.api.riotgames.com/riot/account/v1/accounts/by-puuid/{puuid}"
-    headers = {"X-Riot-Token": RIOT_API_KEY}
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        riot_id_data = response.json()
-        print("Riot ID Response:", riot_id_data)  # Debugging
-        return riot_id_data
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err} - {response.text}")
-    except Exception as err:
-        print(f"An error occurred: {err}")
-    return None
-
-
 def get_champion_icon(champion_name):
     """
     Fetch the URL for a champion icon from Data Dragon.
@@ -298,7 +214,6 @@ def get_champion_icon(champion_name):
     return f"http://ddragon.leagueoflegends.com/cdn/{patch_version}/img/champion/{formatted_champion_name}.png"
 
 
-
 def calculate_time_ago(game_end_timestamp):
     if not game_end_timestamp:
         return "Unknown"
@@ -306,8 +221,14 @@ def calculate_time_ago(game_end_timestamp):
     now = datetime.now(timezone.utc)
     game_time = datetime.fromtimestamp(game_end_timestamp / 1000, tz=timezone.utc)
     time_difference = now - game_time
-
-    if time_difference.days > 0:
+    
+    if time_difference.days >= 84:
+        return "three months ago"
+    elif time_difference.days >= 56:
+        return "two months ago"
+    elif time_difference.days >= 28:
+        return "a month ago"
+    elif time_difference.days > 0:
         return f"{time_difference.days} days ago"
     elif time_difference.seconds >= 3600:
         hours = time_difference.seconds // 3600
@@ -315,31 +236,90 @@ def calculate_time_ago(game_end_timestamp):
     else:
         minutes = time_difference.seconds // 60
         return f"{minutes} minutes ago"
+    
+    
+def get_mmr_estimate(game_name, tag_line, region="na1"):
+    account_info = get_account_by_riot_id(game_name, tag_line, region)
+    if not account_info:
+        return "Error: Account not found"
+    
+    summoner_puuid = account_info.get("puuid") # issue is that account_info returns puuid not id
+    summoner_info = get_summoner_info_by_puuid(summoner_puuid, region)
+    summoner_id = summoner_info.get("id")
+    ranked_stats = get_ranked_stats_by_summoner_id(summoner_id, region)
+    if not ranked_stats:
+        return "Error: Ranked stats not found"
+    
+    # Estimate MMR from rank and LP
+    rank = ranked_stats[0].get('tier', 'IRON')
+    lp = ranked_stats[0].get('leaguePoints', 0)
+    estimated_mmr = estimate_mmr_from_rank_and_lp(rank, lp)
+    
+    # Calculate performance metrics (win rate, KDA, CS)
+    puuid = account_info.get("puuid")
+    match_history = get_match_history(puuid, region)
+    performance_metrics = calculate_performance_metrics(match_history, puuid, region)
+    
+    return {
+        "estimated_mmr": estimated_mmr,
+        "win_rate": performance_metrics["win_rate"],
+        "kda": performance_metrics["kda"],
+        "average_cs": performance_metrics["average_cs"]
+    }   
+    
+def get_match_history(puuid, region="na1", count=20):
+    """Fetch match history"""
+    url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
+    headers = {"X-Riot-Token": RIOT_API_KEY}
+    response = requests.get(url, headers=headers, params={"count": count})
+    return response.json() if response.status_code == 200 else []
 
-def get_all_matches_since_season(puuid, region="americas", season_start_timestamp=None):
-    """
-    Fetch all match history for the user since the season start, using pagination.
-    """
-    all_matches = []
-    start = 0
-    count = 100  # Riot API supports 100 matches per request
-    while True:
-        # Fetch the match IDs
-        match_ids = get_match_history_paged(puuid, start=start, count=count, region=region)
-        
-        if not match_ids:  # If no more matches are available, stop
-            break
 
-        # Fetch match details for each match
-        for match_id in match_ids:
-            match_details = get_user_match_details(puuid, match_id, region)
-            
-            if match_details:
-                # Check if the match is from the current season
-                game_start_timestamp = match_details.get("game_start_timestamp")
-                if game_start_timestamp and game_start_timestamp >= season_start_timestamp:
-                    all_matches.append(match_details)
+def calculate_performance_metrics(match_ids, puuid, region="na1"):
+    """Calculate win rate, KDA, and CS from match history"""
+    wins = 0
+    total_kills = 0
+    total_deaths = 0
+    total_assists = 0
+    total_cs = 0
+    total_matches = len(match_ids)
+    
+    for match_id in match_ids:
+        match_details = get_user_match_details(puuid, match_id, region)
+        if match_details:
+            user_participant = next((p for p in match_details['info']['participants'] if p['puuid'] == puuid), None)
+            if user_participant:
+                if user_participant['win']:
+                    wins += 1
+                total_kills += user_participant['kills']
+                total_deaths += user_participant['deaths']
+                total_assists += user_participant['assists']
+                total_cs += user_participant['totalMinionsKilled'] + user_participant['neutralMinionsKilled']
+    
+    # Calculate KDA and win rate
+    win_rate = wins / total_matches if total_matches > 0 else 0
+    kda = (total_kills + total_assists) / total_deaths if total_deaths > 0 else total_kills + total_assists
+    average_cs = total_cs / total_matches if total_matches > 0 else 0
+    
+    return {
+        "win_rate": win_rate,
+        "kda": kda,
+        "average_cs": average_cs
+    }
+    
+def estimate_mmr_from_rank_and_lp(rank, lp):
+    """Estimate MMR based on rank and LP"""
+    rank_to_mmr = {
+        'IRON': (0, 1000),
+        'BRONZE': (1001, 1200),
+        'SILVER': (1201, 1400),
+        'GOLD': (1401, 1600),
+        'PLATINUM': (1601, 1800),
+        'DIAMOND': (1801, 2000),
+        'MASTER': (2001, 2200),
+        'GRANDMASTER': (2201, 2400),
+        'CHALLENGER': (2401, 2600)
+    }
 
-        start += count  # Move to the next page of matches
-
-    return all_matches
+    rank_lower, rank_upper = rank_to_mmr.get(rank.upper(), (0, 1000))
+    return rank_lower + lp // 100  # Approximate MMR from LP within the rank range
