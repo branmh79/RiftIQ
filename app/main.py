@@ -19,9 +19,11 @@ def home():
 
 @app.route("/search", methods=["POST"])
 def search():
+    # Get the user input from the search form
     game_name = request.form["game_name"]
     tag_line = request.form["tag_line"]
     region = request.form.get("region", "na1")  # Default to NA1 if not specified
+
     try:
         # Fetch account info
         account_info = get_account_by_riot_id(game_name, tag_line, region)
@@ -74,6 +76,7 @@ def search():
     except Exception as e:
         print("Error in search:", e)
         return render_template("error.html", error=str(e)), 400
+
 
 
 
