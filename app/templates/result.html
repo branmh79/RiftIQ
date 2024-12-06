@@ -235,16 +235,16 @@
         <!-- Left Section -->
         <div class="left-section">
             <div class="profile-card">
-                <h2>Riot ID</h2>
+                <h2>Summoner</h2>
                 <p><strong>Riot ID:</strong> {{ riot_id.gameName }}#{{ riot_id.tagLine }}</p>
-                <p><strong>Summoner Level:</strong> {{ summoner_info.summonerLevel }}</p>
+                <p><strong>Level:</strong> {{ summoner_info.summonerLevel }}</p>
             </div>
 
             <div class="rank-card">
                 <h2>Ranked Stats</h2>
                 {% if ranked_stats %}
                 <p><strong>Rank:</strong> {{ ranked_stats.tier }} {{ ranked_stats.rank }}</p>
-                <p><strong>MMR:</strong> {{ mmr_data.estimated_mmr or 'N/A' }} (Estimated)</p>
+                <p><strong>MMR:</strong> {{ mmr_data.estimated_mmr or 'N/A' }} {{mmr_data.rank_label}}</p>
                 <p><strong>Wins:</strong> {{ ranked_stats.wins }}</p>
                 <p><strong>Losses:</strong> {{ ranked_stats.losses }}</p>
                 <p><strong>Win Rate:</strong> {{ (ranked_stats.wins / (ranked_stats.wins + ranked_stats.losses) * 100) | round(2) }}%</p>
@@ -256,7 +256,7 @@
             <!-- New Card for Most Played Champions -->
             <div class="champion-stats-card">
                 <h2>Recently Played Champions</h2>
-                <h4>Past 20 Games</h4>
+                <h5>Past 20 Games</h5>
                 <ul class="champion-stats-list">
                     {% for champion in most_played_champions %}
                     <li class="champion-stats-item">

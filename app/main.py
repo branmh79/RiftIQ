@@ -8,6 +8,7 @@ from riot_client import (
     get_ranked_stats_by_summoner_id,
     get_summoner_info_by_puuid,
     get_mmr_estimate,
+    get_rank_by_mmr,
 )
 
 app = Flask(__name__)
@@ -62,6 +63,9 @@ def search():
 
         # Fetch MMR Estimate
         mmr_data = get_mmr_estimate(game_name, tag_line, region)
+        estimated_mmr = mmr_data["estimated_mmr"]
+        print(f"Estimated MMR: {estimated_mmr}")
+        rank = get_rank_by_mmr(estimated_mmr)
 
         return render_template(
             "result.html",
@@ -71,7 +75,8 @@ def search():
             user_match_details=user_match_details,
             most_played_champions=most_played_champions,
             region=region,
-            mmr_data=mmr_data  # Pass MMR data to the template
+            mmr_data=mmr_data,  # Pass MMR data to the template
+            rank=rank
         )
     except Exception as e:
         print("Error in search:", e)
