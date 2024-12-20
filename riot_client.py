@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 from time import sleep
 from datetime import datetime, timezone
 from collections import Counter
+from config import firebase_config
+from firebase_admin import credentials, db
+import re
+from flask import session
 
 PLATFORM_TO_GLOBAL = {
     "na1": "americas",
@@ -18,6 +22,7 @@ PLATFORM_TO_GLOBAL = {
     "jp1": "asia",
     "oc1": "sea",
 }
+
 
 season_start_date = datetime(2024, 9, 25)
 season_start_timestamp = int(season_start_date.timestamp() * 1000)
@@ -55,7 +60,8 @@ def get_match_history_paged(puuid, start=0, count=20, region="americas"):
     """
     Fetch paged match history for the user.
     """
-    url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
+    global_region = PLATFORM_TO_GLOBAL.get(region, "americas")
+    url = f"https://{global_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
     headers = {"X-Riot-Token": RIOT_API_KEY}
     params = {"start": start, "count": count}
 
@@ -69,11 +75,15 @@ def get_match_history_paged(puuid, start=0, count=20, region="americas"):
         print(f"An error occurred: {err}")
     return []
 
-def get_user_match_details(puuid, match_id, region="americas"):
+
+def get_user_match_details(puuid, match_id, region="na1"):
     """
-    Fetch detailed match information for a specific match filtered by the user's PUUID.
+    Fetch detailed match information for a specific match filtered by the user's PUUID,
+    and calculate the average rank of the lobby.
     """
-    url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}"
+    global_region = PLATFORM_TO_GLOBAL.get(region, "americas")  # Use regional routing for match details
+    platform_region = region 
+    url = f"https://{global_region}.api.riotgames.com/lol/match/v5/matches/{match_id}"
     headers = {"X-Riot-Token": RIOT_API_KEY}
 
     try:
@@ -81,54 +91,60 @@ def get_user_match_details(puuid, match_id, region="americas"):
         response.raise_for_status()
         match_data = response.json()
 
+        # Filter out non-Ranked Solo/Duo matches
+        game_mode = match_data["info"].get("gameMode", "")
+        if game_mode != "CLASSIC":
+            print(f"Skipping non-Ranked Solo/Duo match: {match_id} with gameMode: {game_mode}")
+            return None
+
         # Locate the participant data for the given PUUID
-        user_participant = next(
-            (p for p in match_data["info"]["participants"] if p["puuid"] == puuid), None
-        )
+        participants = match_data["info"]["participants"]
+        user_participant = next((p for p in participants if p["puuid"] == puuid), None)
 
-        if user_participant:
-            # Format champion name and retrieve champion icon URL
-            champion_name = user_participant.get("championName", "Unknown")
-            champion_icon = get_champion_icon(champion_name)
-
-            # Safe access to game_start_timestamp and game_end_timestamp
-            game_start_timestamp = match_data["info"].get("gameStartTimestamp", None)
-            game_end_timestamp = match_data["info"].get("gameEndTimestamp", None)
-            game_time_ago = calculate_time_ago(game_end_timestamp)
-            
-            total_minions_killed = user_participant.get("totalMinionsKilled", 0)
-            neutral_minions_killed = user_participant.get("neutralMinionsKilled", 0)
-
-            # Sum lane minions and neutral minions for total CS
-            total_cs = total_minions_killed + neutral_minions_killed
-
-            # Construct match details
-            match_details = {
-                "match_id": match_id,
-                "game_mode": match_data["info"].get("gameMode", "Unknown"),
-                "game_duration": match_data["info"].get("gameDuration", 0) // 60,  # Convert seconds to minutes
-                "game_start_timestamp": game_start_timestamp,  # Include gameStartTimestamp
-                "game_time_ago": game_time_ago,
-                "user_data": {
-                    "championName": champion_name,
-                    "champion_icon": champion_icon,
-                    "kills": user_participant.get("kills", 0),
-                    "deaths": user_participant.get("deaths", 0),
-                    "assists": user_participant.get("assists", 0),
-                    "totalCS": total_cs,  # Corrected CS calculation
-                    "win": user_participant.get("win", False),
-                },
-            }
-            return match_details
-        else:
+        if not user_participant:
             print(f"No participant found for PUUID {puuid} in match {match_id}.")
             return None
+
+        # Format champion name and retrieve champion icon URL
+        champion_name = user_participant.get("championName", "Unknown")
+        champion_icon = get_champion_icon(champion_name)
+
+        # Safe access to game_start_timestamp and game_end_timestamp
+        game_start_timestamp = match_data["info"].get("gameStartTimestamp", None)
+        game_end_timestamp = match_data["info"].get("gameEndTimestamp", None)
+        game_time_ago = calculate_time_ago(game_end_timestamp)
+
+        total_minions_killed = user_participant.get("totalMinionsKilled", 0)
+        neutral_minions_killed = user_participant.get("neutralMinionsKilled", 0)
+
+        # Sum lane minions and neutral minions for total CS
+        total_cs = total_minions_killed + neutral_minions_killed
+
+        # Construct match details
+        match_details = {
+            "match_id": match_id,
+            "game_mode": game_mode,
+            "game_duration": match_data["info"].get("gameDuration", 0) // 60,  # Convert seconds to minutes
+            "game_start_timestamp": game_start_timestamp,  # Include gameStartTimestamp
+            "game_time_ago": game_time_ago,
+            "user_data": {
+                "championName": champion_name,
+                "champion_icon": champion_icon,
+                "kills": user_participant.get("kills", 0),
+                "deaths": user_participant.get("deaths", 0),
+                "assists": user_participant.get("assists", 0),
+                "totalCS": total_cs,  # Corrected CS calculation
+                "win": user_participant.get("win", False),
+            },
+        }
+        return match_details
 
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err} - {response.text}")
     except Exception as err:
         print(f"An error occurred: {err}")
     return None
+
 
 
 def get_most_played_champions(match_details, puuid):
@@ -164,11 +180,11 @@ def get_most_played_champions(match_details, puuid):
     return most_played
 
 
-def get_ranked_stats_by_summoner_id(summoner_id, region="na1"):
+def get_ranked_stats_by_summoner_id(summoner_id, platform_region="na1"):
     """
     Fetch ranked stats for a summoner by their encrypted summoner ID.
     """
-    url = f"https://{region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{summoner_id}"
+    url = f"https://{platform_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{summoner_id}"
     headers = {"X-Riot-Token": RIOT_API_KEY}
 
     try:
@@ -229,13 +245,15 @@ def calculate_time_ago(game_end_timestamp):
     elif time_difference.days >= 28:
         return "a month ago"
     elif time_difference.days > 0:
-        return f"{time_difference.days} days ago"
+        return f"{time_difference.days} day{'s' if time_difference.days > 1 else ''} ago"
     elif time_difference.seconds >= 3600:
         hours = time_difference.seconds // 3600
-        return f"{hours} hours ago"
-    else:
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif time_difference.seconds >= 60:
         minutes = time_difference.seconds // 60
-        return f"{minutes} minutes ago"
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "Less than a minute ago"
     
     
 def get_mmr_estimate(game_name, tag_line, region="na1"):
@@ -258,9 +276,11 @@ def get_mmr_estimate(game_name, tag_line, region="na1"):
     estimated_mmr = estimate_mmr_from_rank_and_lp(rank, lp)
     
     # Calculate performance metrics (win rate, KDA, CS)
-    puuid = account_info.get("puuid")
-    match_history = get_match_history(puuid, region)
-    performance_metrics = calculate_performance_metrics(match_history, puuid, region)
+    match_history = session.get("match_history", [])
+    print("Match History Retrieved in get_mmr_estimate:", match_history)
+    print("Match History Passed to Metrics Calculation:", match_history)
+    performance_metrics = calculate_performance_metrics(match_history, summoner_puuid, region)
+    print("Calculated Performance Metrics:", performance_metrics)
     
     return {
         "estimated_mmr": estimated_mmr,
@@ -272,7 +292,7 @@ def get_mmr_estimate(game_name, tag_line, region="na1"):
 
 
     
-def get_match_history(puuid, region="na1", count=20):
+def get_match_history(puuid, region="americas", count=20):
     """Fetch match history"""
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
     headers = {"X-Riot-Token": RIOT_API_KEY}
@@ -280,38 +300,41 @@ def get_match_history(puuid, region="na1", count=20):
     return response.json() if response.status_code == 200 else []
 
 
-def calculate_performance_metrics(match_ids, puuid, region="na1"):
-    """Calculate win rate, KDA, and CS from match history"""
+def calculate_performance_metrics(match_history, puuid, region="americas"):
+    """Calculate win rate, KDA, and CS from match history."""
     wins = 0
     total_kills = 0
     total_deaths = 0
     total_assists = 0
     total_cs = 0
-    total_matches = len(match_ids)
-    
-    for match_id in match_ids:
+    total_matches = 0
+
+
+    for match_id in match_history:
         match_details = get_user_match_details(puuid, match_id, region)
-        if match_details:
-            user_participant = next((p for p in match_details['info']['participants'] if p['puuid'] == puuid), None)
-            if user_participant:
-                if user_participant['win']:
-                    wins += 1
-                total_kills += user_participant['kills']
-                total_deaths += user_participant['deaths']
-                total_assists += user_participant['assists']
-                total_cs += user_participant['totalMinionsKilled'] + user_participant['neutralMinionsKilled']
-    
-    # Calculate KDA and win rate
-    win_rate = wins / total_matches if total_matches > 0 else 0
+            
+        if match_details and "user_data" in match_details:
+            user_data = match_details["user_data"]
+            total_matches += 1
+
+            if user_data["win"]:
+                wins += 1
+            total_kills += user_data.get("kills", 0)
+            total_deaths += user_data.get("deaths", 0)
+            total_assists += user_data.get("assists", 0)
+            total_cs += user_data.get("totalCS", 0)
+
+    # Calculate metrics
+    win_rate = (wins / total_matches) * 100 if total_matches > 0 else 0
     kda = (total_kills + total_assists) / total_deaths if total_deaths > 0 else total_kills + total_assists
     average_cs = total_cs / total_matches if total_matches > 0 else 0
-    
+
     return {
-        "win_rate": win_rate,
-        "kda": kda,
-        "average_cs": average_cs
+        "win_rate": round(win_rate, 2),
+        "kda": round(kda, 2),
+        "average_cs": round(average_cs, 2)
     }
-    
+
     
 def estimate_mmr_from_rank_and_lp(rank, lp):
     """Estimate MMR based on rank and LP"""
@@ -424,3 +447,45 @@ def get_rank_by_mmr(mmr):
             return f"({rank})"
     
     return "Unranked"  # Return Unranked if MMR doesn't match any rank
+
+
+def sanitize_user_id(user_id):
+    """
+    Replace illegal characters in the user_id with an underscore.
+    """
+    return re.sub(r'[.#$[\]]', '_', user_id)
+
+
+def save_user_data_to_realtime_db(user_id, mmr_data, match_history):
+    """
+    Save user data, including MMR and match history, to Realtime Database.
+    """
+    try:
+        sanitized_user_id = sanitize_user_id(user_id)
+        ref = db.reference(f"users/{sanitized_user_id}")
+
+        # Ensure match_history contains the average_lobby_mmr metric
+        formatted_match_history = []
+        for match in match_history:
+            formatted_match = {
+                "match_id": match.get("match_id"),
+                "game_mode": match.get("game_mode"),
+                "game_duration": match.get("game_duration"),
+                "game_start_timestamp": match.get("game_start_timestamp"),
+                "user_data": match.get("user_data"),
+            }
+            formatted_match_history.append(formatted_match)
+
+        # Create the user data object
+        user_data = {
+            "mmr_data": mmr_data,
+            "match_history": formatted_match_history,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Save to the database
+        ref.set(user_data)
+        print(f"Data saved successfully for user: {sanitized_user_id}")
+    except Exception as e:
+        print(f"Failed to save data to Realtime Database: {e}")
+

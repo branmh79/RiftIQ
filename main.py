@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 from riot_client import (
     PLATFORM_TO_GLOBAL,
     get_account_by_riot_id,
@@ -9,9 +9,12 @@ from riot_client import (
     get_summoner_info_by_puuid,
     get_mmr_estimate,
     get_rank_by_mmr,
+    save_user_data_to_realtime_db,
+    calculate_performance_metrics,
 )
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
 @app.route("/")
 def home():
@@ -43,26 +46,44 @@ def search():
         # Fetch ranked stats
         all_ranked_stats = get_ranked_stats_by_summoner_id(summoner_info["id"], region)
         ranked_stats = next(
-            (stats for stats in all_ranked_stats if stats["queueType"] == "RANKED_SOLO_5x5"), 
+            (stats for stats in all_ranked_stats if stats["queueType"] == "RANKED_SOLO_5x5"),
             None
         )
 
-        # Fetch match history (initial 20 matches)
-        match_history = get_match_history_paged(
-            summoner_info["puuid"], 0, 20, PLATFORM_TO_GLOBAL[region]
-        )
+        # Iteratively fetch match history and filter for Ranked Solo/Duo
+        ranked_match_details = []
+        start = 0
+        while len(ranked_match_details) < 20:
+            match_history = get_match_history_paged(
+                summoner_info["puuid"], start=start, count=20, region=PLATFORM_TO_GLOBAL[region]
+            )
+            if not match_history:
+                break  # Stop if no more matches are available
 
-        # Fetch user-specific match details
-        user_match_details = [
-            get_user_match_details(summoner_info["puuid"], match_id, PLATFORM_TO_GLOBAL[region])
-            for match_id in match_history
-        ]
+            for match_id in match_history:
+                match_details = get_user_match_details(summoner_info["puuid"], match_id, PLATFORM_TO_GLOBAL[region])
+                if match_details and match_details.get("game_mode") == "CLASSIC":
+                    ranked_match_details.append(match_details)
+                    if len(ranked_match_details) == 20:
+                        break
+
+            start += 20  # Move to the next batch of matches
+
+        print(f"Collected {len(ranked_match_details)} Ranked Matches.")  # Debug
+
+        # Use the filtered match details directly for all calculations
+        ranked_match_ids = [match["match_id"] for match in ranked_match_details]
+
+        # Calculate performance metrics
+        performance_metrics = calculate_performance_metrics(ranked_match_ids, summoner_info["puuid"], PLATFORM_TO_GLOBAL[region])
 
         # Calculate most played champions
-        most_played_champions = get_most_played_champions(user_match_details, summoner_info["puuid"])
+        most_played_champions = get_most_played_champions(ranked_match_details, summoner_info["puuid"])
 
         # Fetch MMR Estimate
         mmr_data = get_mmr_estimate(game_name, tag_line, region)
+        user_id = f"{game_name}#{tag_line}"
+        save_user_data_to_realtime_db(user_id, mmr_data, ranked_match_details)
         estimated_mmr = mmr_data["estimated_mmr"]
         print(f"Estimated MMR: {estimated_mmr}")
         rank = get_rank_by_mmr(estimated_mmr)
@@ -72,7 +93,7 @@ def search():
             riot_id={"gameName": game_name, "tagLine": tag_line},
             summoner_info=summoner_info,
             ranked_stats=ranked_stats,
-            user_match_details=user_match_details,
+            user_match_details=ranked_match_details,
             most_played_champions=most_played_champions,
             region=region,
             mmr_data=mmr_data,  # Pass MMR data to the template
@@ -81,6 +102,7 @@ def search():
     except Exception as e:
         print("Error in search:", e)
         return render_template("error.html", error=str(e)), 400
+
 
 
 
