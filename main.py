@@ -74,8 +74,9 @@ def search():
         # Use the filtered match details directly for all calculations
         ranked_match_ids = [match["match_id"] for match in ranked_match_details]
 
+        session["match_history"] = match_history
         # Calculate performance metrics
-        performance_metrics = calculate_performance_metrics(ranked_match_ids, summoner_info["puuid"], PLATFORM_TO_GLOBAL[region])
+        performance_metrics = calculate_performance_metrics(ranked_match_ids, summoner_info["puuid"], region)
 
         # Calculate most played champions
         most_played_champions = get_most_played_champions(ranked_match_details, summoner_info["puuid"])
