@@ -1,11 +1,9 @@
 import os
 import requests
 from dotenv import load_dotenv
-from time import sleep
 from datetime import datetime, timezone
 from collections import Counter
-from config import firebase_config
-from firebase_admin import credentials, db
+from firebase_admin import db
 import re
 from flask import session
 
@@ -130,6 +128,7 @@ def get_user_match_details(puuid, match_id, region="na1"):
             "user_data": {
                 "championName": champion_name,
                 "champion_icon": champion_icon,
+                "puuid" : puuid,
                 "kills": user_participant.get("kills", 0),
                 "deaths": user_participant.get("deaths", 0),
                 "assists": user_participant.get("assists", 0),
@@ -146,13 +145,11 @@ def get_user_match_details(puuid, match_id, region="na1"):
     return None
 
 
-
 def get_most_played_champions(match_details, puuid):
     """
     Calculate the most played champions with win rates based on the match details.
     This will return the top 6 champions by games played, considering only the current season.
     """
-    from collections import Counter
 
     champion_stats = Counter()
     champion_wins = Counter()
@@ -198,6 +195,7 @@ def get_ranked_stats_by_summoner_id(summoner_id, platform_region="na1"):
     except Exception as err:
         print(f"An error occurred: {err}")
     return None
+
 
 def get_summoner_info_by_puuid(puuid, region="na1"):
     """
@@ -291,7 +289,6 @@ def get_mmr_estimate(game_name, tag_line, region="na1"):
     }
 
 
-    
 def get_match_history(puuid, region="americas", count=20):
     """Fetch match history"""
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
@@ -300,8 +297,8 @@ def get_match_history(puuid, region="americas", count=20):
     return response.json() if response.status_code == 200 else []
 
 
-def calculate_performance_metrics(match_history, puuid, region="americas"):
-    """Calculate win rate, KDA, and CS from match history."""
+def calculate_performance_metrics(match_ids, puuid, region="americas"):
+    """Calculate win rate, KDA, and CS from the user's matches."""
     wins = 0
     total_kills = 0
     total_deaths = 0
@@ -309,22 +306,21 @@ def calculate_performance_metrics(match_history, puuid, region="americas"):
     total_cs = 0
     total_matches = 0
 
-
-    for match_id in match_history:
+    for match_id in match_ids:
         match_details = get_user_match_details(puuid, match_id, region)
-            
-        if match_details and "user_data" in match_details:
-            user_data = match_details["user_data"]
-            total_matches += 1
+        if not match_details or "user_data" not in match_details:
+            print(f"Skipping invalid or irrelevant match: {match_id}")
+            continue
 
-            if user_data["win"]:
-                wins += 1
-            total_kills += user_data.get("kills", 0)
-            total_deaths += user_data.get("deaths", 0)
-            total_assists += user_data.get("assists", 0)
-            total_cs += user_data.get("totalCS", 0)
+        user_data = match_details["user_data"]
+        total_matches += 1
+        if user_data["win"]:
+            wins += 1
+        total_kills += user_data.get("kills", 0)
+        total_deaths += user_data.get("deaths", 0)
+        total_assists += user_data.get("assists", 0)
+        total_cs += user_data.get("totalCS", 0)
 
-    # Calculate metrics
     win_rate = (wins / total_matches) * 100 if total_matches > 0 else 0
     kda = (total_kills + total_assists) / total_deaths if total_deaths > 0 else total_kills + total_assists
     average_cs = total_cs / total_matches if total_matches > 0 else 0
@@ -335,7 +331,7 @@ def calculate_performance_metrics(match_history, puuid, region="americas"):
         "average_cs": round(average_cs, 2)
     }
 
-    
+
 def estimate_mmr_from_rank_and_lp(rank, lp):
     """Estimate MMR based on rank and LP"""
     rank_to_mmr = {
@@ -393,7 +389,6 @@ def estimate_mmr_from_rank_and_lp(rank, lp):
     estimated_mmr = rank_lower + (lp // 100)
     
     return estimated_mmr
-
 
 
 def get_rank_by_mmr(mmr):
@@ -456,36 +451,146 @@ def sanitize_user_id(user_id):
     return re.sub(r'[.#$[\]]', '_', user_id)
 
 
-def save_user_data_to_realtime_db(user_id, mmr_data, match_history):
+def save_user_data_to_realtime_db(
+    user_id, mmr_data=None, match_history=None, stored_match_ids=None, 
+    summoner_info=None, ranked_stats=None, most_played_champions=None
+):
     """
-    Save user data, including MMR and match history, to Realtime Database.
+    Save user data, including MMR, match history, and stored match IDs, to Realtime Database.
     """
     try:
-        sanitized_user_id = sanitize_user_id(user_id)
-        ref = db.reference(f"users/{sanitized_user_id}")
+        ref = db.reference(f"users/{sanitize_user_id(user_id)}")
 
-        # Ensure match_history contains the average_lobby_mmr metric
-        formatted_match_history = []
-        for match in match_history:
-            formatted_match = {
-                "match_id": match.get("match_id"),
-                "game_mode": match.get("game_mode"),
-                "game_duration": match.get("game_duration"),
-                "game_start_timestamp": match.get("game_start_timestamp"),
-                "user_data": match.get("user_data"),
-            }
-            formatted_match_history.append(formatted_match)
+        # Retrieve existing data to preserve fields like stored_match_ids
+        existing_data = ref.get() or {}
 
-        # Create the user data object
+        # Ensure summoner_info includes PUUID if available
+        if match_history and "puuid" in match_history[0].get("user_data", {}):
+            summoner_info = summoner_info or existing_data.get("summoner_info", {})
+            summoner_info["puuid"] = match_history[0]["user_data"]["puuid"]
+
+        # Default to existing data if parameters are not provided
+        ranked_stats = ranked_stats or existing_data.get("ranked_stats", {})
+        most_played_champions = most_played_champions or existing_data.get("most_played_champions", [])
+        
+        # Update match history with deduplication
+        existing_match_history = existing_data.get("match_history", [])
+        new_match_history = match_history or []
+        combined_match_history = new_match_history + existing_match_history
+        # Sort and limit to the 20 most recent matches
+        combined_match_history = sorted(
+            combined_match_history,
+            key=lambda x: x.get("game_start_timestamp", 0),
+            reverse=True
+        )[:20]
+
+        # Update stored match IDs
+        existing_stored_ids = set(existing_data.get("stored_match_ids", []))
+        new_stored_ids = set(stored_match_ids or [])
+        updated_stored_ids = list(existing_stored_ids.union(new_stored_ids))
+
+        # Update user data
         user_data = {
-            "mmr_data": mmr_data,
-            "match_history": formatted_match_history,
+            "summoner_info": summoner_info or existing_data.get("summoner_info", {}),
+            "ranked_stats": ranked_stats,
+            "most_played_champions": most_played_champions,
+            "mmr_data": mmr_data or existing_data.get("mmr_data", {}),
+            "match_history": combined_match_history,
+            "stored_match_ids": updated_stored_ids,
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Save to the database
+        # Save data to the database
         ref.set(user_data)
-        print(f"Data saved successfully for user: {sanitized_user_id}")
+        print(f"Data saved successfully for user: {user_id}")
     except Exception as e:
         print(f"Failed to save data to Realtime Database: {e}")
 
+
+def fetch_initial_matches(puuid, region):
+    ranked_match_details = []
+    stored_match_ids = []
+    start = 0
+
+    while len(ranked_match_details) < 20:
+        match_history = get_match_history_paged(puuid, start=start, count=20, region=PLATFORM_TO_GLOBAL[region])
+        if not match_history:
+            break
+
+        for match_id in match_history:
+            match_details = get_user_match_details(puuid, match_id, PLATFORM_TO_GLOBAL[region])
+            if match_details and match_details.get("game_mode") == "CLASSIC":
+                ranked_match_details.append(match_details)
+                stored_match_ids.append(match_id)
+
+                if len(ranked_match_details) == 20:
+                    break
+
+        start += 20
+
+    return ranked_match_details, stored_match_ids
+
+
+def initialize_user_portfolio(user_id, match_history):
+    """
+    Initialize the user's match portfolio in the database with the latest 20 matches.
+
+    :param user_id: The unique user ID.
+    :param match_history: List of match IDs to store initially.
+    """
+    ref = db.reference(f"users/{user_id}/matches")
+    try:
+        for match_id in match_history:
+            ref.child(match_id).set({"stored": True})
+        print(f"Initialized portfolio for user {user_id} with {len(match_history)} matches.")
+    except Exception as e:
+        print(f"Failed to initialize portfolio for user {user_id}: {e}")
+
+def get_new_matches(user_id, fetched_match_history):
+    """
+    Identify new matches that are not already stored in the database.
+
+    :param user_id: The unique user ID.
+    :param fetched_match_history: List of match IDs fetched from the Riot API.
+    :return: List of new match IDs.
+    """
+    ref = db.reference(f"users/{user_id}/matches")
+    stored_matches = ref.get() or {}
+
+    # Find matches that are not already stored
+    new_matches = [match_id for match_id in fetched_match_history if match_id not in stored_matches]
+    return new_matches
+
+def append_new_matches(user_id, new_matches):
+    """
+    Append new matches to the user's portfolio in the database.
+
+    :param user_id: The unique user ID.
+    :param new_matches: List of new match IDs to add.
+    """
+    ref = db.reference(f"users/{user_id}/matches")
+    try:
+        for match_id in new_matches:
+            ref.child(match_id).set({"stored": True})
+        print(f"Appended {len(new_matches)} new matches to user {user_id}'s portfolio.")
+    except Exception as e:
+        print(f"Failed to append new matches for user {user_id}: {e}")
+
+def save_match_to_database(user_id, match_id, match_details):
+    """
+    Save match details to the database.
+    """
+    try:
+        ref = db.reference(f"users/{sanitize_user_id(user_id)}/matches/{match_id}")
+        ref.set(match_details)
+        print(f"Match {match_id} saved successfully for user {user_id}.")
+    except Exception as e:
+        print(f"Failed to save match {match_id} for user {user_id}: {e}")
+
+def get_stored_match_ids(user_id):
+    """
+    Retrieve stored match IDs for a user.
+    """
+    ref = db.reference(f"users/{sanitize_user_id(user_id)}/matches")
+    stored_matches = ref.get() or {}
+    return set(stored_matches.keys())

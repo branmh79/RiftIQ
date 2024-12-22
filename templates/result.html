@@ -240,6 +240,10 @@
                 <p><strong>Level:</strong> {{ summoner_info.summonerLevel }}</p>
             </div>
 
+            <div class="refresh-container">
+                <button onclick="refreshMatches()" id="refreshButton">Refresh Matches</button>
+            </div>              
+
             <div class="rank-card">
                 <h2>Ranked Stats</h2>
                 {% if ranked_stats %}
@@ -268,6 +272,7 @@
                 </ul>
             </div>
         </div>
+  
 
         <!-- Right Section -->
         <div class="right-section">
@@ -307,58 +312,74 @@
 
     <script>
         let matchStartIndex = 20; // Start after the first 20 matches
+        let currentMatchCount = {{ user_match_details | length }};
 
         function loadMoreMatches() {
-            const gameName = "{{ riot_id.gameName }}";
-            const tagLine = "{{ riot_id.tagLine }}";
-            const region = "{{ region }}";
-
-            // Show loading spinner
-            const spinner = document.querySelector(".loading-spinner");
-            spinner.classList.add("active");
-
-            // Make the AJAX request
+            const userId = "{{ riot_id.gameName }}#{{ riot_id.tagLine }}";
+            const startIndex = currentMatchCount; // Tracks the current number of matches displayed
+        
             fetch("/load_more", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    game_name: gameName,
-                    tag_line: tagLine,
-                    start: matchStartIndex,
-                    region: region,
+                    user_id: userId,
+                    start: startIndex,
                 }),
             })
                 .then((response) => response.json())
                 .then((data) => {
-                    if (data.error) {
-                        alert("Error loading more matches: " + data.error);
-                    } else {
-                        appendMatches(data.user_match_details);
-                        matchStartIndex += data.user_match_details.length; // Update the start index
+                    if (data.message) {
+                        // Display the message if no more matches are available
+                        alert(data.message);
+                    } else if (data.matches) {
+                        appendMatches(data.matches);
+                        currentMatchCount += data.matches.length; // Update the count
                     }
                 })
                 .catch((error) => {
-                    console.error("Error:", error);
-                })
-                .finally(() => {
-                    // Hide loading spinner
-                    spinner.classList.remove("active");
+                    console.error("Error loading more matches:", error);
                 });
         }
 
+        function refreshMatches() {
+            const userId = "{{ riot_id.gameName }}#{{ riot_id.tagLine }}";
+        
+            fetch("/refresh_matches", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    region: "{{ region }}",
+                }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.message) {
+                        alert(data.message); // Display the response message
+                        if (data.new_matches) {
+                            // Update the right container with new matches
+                            location.reload(); // Reload the page to fetch updated match history
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error refreshing matches:", error);
+                });
+        }
+        
+        
         function appendMatches(matches) {
-            const matchHistoryList = document.querySelector(".match-history-list");
-
+            const matchContainer = document.querySelector(".match-history-list");
             matches.forEach((match) => {
-                const matchContainer = document.createElement("div");
-                matchContainer.className = `match-container ${
+                const matchElement = document.createElement("div");
+                matchElement.className = `match-container ${
                     match.user_data.win ? "win" : "loss"
                 }`;
-
-                // Create HTML for match
-                matchContainer.innerHTML = ` 
+                matchElement.innerHTML = `
                     <div class="match-header">
                         <img src="${match.user_data.champion_icon}" 
                              alt="${match.user_data.championName}" 
@@ -373,8 +394,7 @@
                         <p><strong>Duration:</strong> ${match.game_duration} minutes</p>
                     </div>
                 `;
-
-                matchHistoryList.appendChild(matchContainer);
+                matchContainer.appendChild(matchElement);
             });
         }
     </script>
