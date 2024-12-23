@@ -3,7 +3,8 @@ import requests
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 from collections import Counter
-from firebase_admin import db
+from firebase_admin import db 
+from config import firebase_config # import to initialize db
 import re
 from flask import session
 

@@ -8,23 +8,25 @@
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
-            padding: 100px 360px 20px 360px;  /* Adjusted padding to make room for search bar */
-            background: linear-gradient(135deg, #1d3557, #457b9d, #1d3557);
-            color: #ffffff;
-        }        
+            padding: 100px 360px 20px 360px;
+            background: linear-gradient(225deg,#534258, #3a3a3a);
+            color: #ffffff; /* White text for readability */
+        }
 
         .search-bar-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 15px; /* Space between logo and search bar */
+            gap: 15px;
             position: absolute;
             top: 50px;
             left: 50%;
-            transform: translateX(-50%); /* Centers the search bar horizontally */
-            width: 60%;  /* Reduced the width */
-            max-width: 1000px; /* Maximum width for the search bar */
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 1000px;
+            margin-bottom: 20px; /* Add space below the search bar */
         }
+        
         
         .search-logo {
             height: 50px;  /* Adjust to the height of the search bar */
@@ -34,7 +36,7 @@
         .search-form {
             display: flex;
             gap: 10px;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color:#181718;
             padding: 6px 10px;
             border-radius: 5px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
@@ -75,20 +77,99 @@
             margin-top: 30px; /* Add margin to account for the fixed search bar */
         }
 
-        .left-section {
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.85);
-            border-radius: 15px;
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
-            flex: 1.5;
+        .refresh-button {
+            align-self: flex-start; /* Align button to the left */
+            background-color: #e63946;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .refresh-button:hover {
+            background-color: #d62828;
+        }
+        
+        .refresh-container {
+            display: flex;
+            flex-direction: column; /* Stack the button and text vertically */
+            align-items: flex-end;  /* Align to the right */
+            margin-top: 4px;
+        }
+        
+        .last-updated {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #ffffff;
         }
 
-        .right-section {
-            flex: 3;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.85);
+        .profile-info-container {
+            display: flex;
+            align-items: center; /* Vertically align items */
+            gap: 15px; /* Space between icon and details */
+        }
+
+        .profile-icon-container {
+            display: flex;
+            flex-direction: column; /* Stack icon and level */
+            align-items: center;
+            gap: 5px; /* Minimal spacing between icon and level */
+            margin: 0; /* Remove extra margin */
+            padding: 0; /* Ensure no padding causes extra space */
+        }
+
+        .profile-text {
+            flex: 1; /* Allow the text to take up remaining space */
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%; /* Ensure main-container takes the full width */
+            box-sizing: border-box; /* Include padding in width */
+        }
+        
+
+        .left-container {
+            flex: 1; /* Take up one portion of the width */
+            display: flex;
+            flex-direction: column; /* Stack Ranked Stats and Recently Played Champions */
+            gap: 20px; /* Space between the sections */
+            max-width: 400px; /* Limit the width of the left container */
+        }
+
+
+        .ranked-stats {
+            background: #181718; /* Lighter gray */
             border-radius: 15px;
+            padding: 20px;
             box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .recently-played-champions {
+            background: #181718; /* Lighter gray */
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+            width: 100%; /* Contain it within the left container */
+            box-sizing: border-box; /* Ensure padding doesn't affect width */
+        }
+
+        .ranked-stats h2{
+            margin-bottom: 10px;
+        }
+
+        .right-container {
+            flex: 2; /* Take up twice the width of the left container */
+            background: #181718;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+            width: 100%; /* Ensure it stretches to fill the available space */
+            box-sizing: border-box; /* Include padding in width calculation */
         }
 
         .profile-card, .rank-card {
@@ -99,8 +180,124 @@
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
         }
 
-        .profile-card h2, .rank-card h2 {
+        .rank-card h2 {
             margin-bottom: 10px;
+        }
+    
+
+        .profile-icon {
+            margin-right: 10px;
+        }
+        
+        .profile-icon-img {
+            width: 80px; /* Increased size */
+            height: 80px; /* Increased size */
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3); /* Slightly thicker border */
+        }
+        
+        .profile-level {
+            margin: 0; /* Remove any margin around the text */
+            padding: 0; /* Ensure no padding contributes to extra space */
+            font-size: 1em; /* Keep size visually prominent */
+            font-weight: bold;
+            color: #f4a261;
+        }
+        
+
+        .profile-details-container {
+            display: flex;
+            flex-direction: column; /* Stack name and button vertically */
+            justify-content: flex-start; /* Align items to the top */
+            flex: 1; /* Allow the container to expand */
+            margin-left: 20px; /* Space between icon and details */
+        }
+
+        .user-info {
+            display: flex;
+            align-items: baseline; /* Align name and tagline on their baseline */
+            gap: 5px; /* Space between username and tagline */
+            margin-bottom: 10px; /* Add some space below the name and tagline */
+        }
+
+        .summoner-profile-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 20px;
+            margin: 20px 0 20px; /* Center horizontally using main-container's padding */
+            background: #181718;
+            border-radius: 15px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+            width: 100%; /* Match the width of main-container */
+            box-sizing: border-box; /* Ensure padding doesn’t increase width */
+        }
+        
+        
+
+        .summoner-name {
+            font-weight: bold;
+            color: #ffffff;
+            font-size: 1.8em; /* Larger font size for the username */
+        }
+        
+        .summoner-tag {
+            font-weight: normal;
+            color: #b0b0b0;
+            font-size: 1.4em; /* Slightly larger tagline */
+        }
+
+        .champion-list {
+            display: flex;
+            flex-direction: column; /* Stack champions vertically */
+            gap: 10px; /* Space between rows */
+        }
+        
+        .champion-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .champion-name {
+            font-weight: bold;
+            color: #ffffff;
+            font-size: 1em;
+        }
+        
+        .games-played, .win-rate {
+            font-size: 0.9em;
+            color: #f4a261;
+        }
+
+        .champion-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 10px;
+        }
+
+        .champion-item {
+            display: flex;
+            align-items: center; /* Vertically align content */
+            gap: 10px; /* Space between icon and text */
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            width: auto; /* Prevent the item from stretching unnecessarily */
+        }
+
+        .champion-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         .champion-stats-card {
@@ -138,15 +335,19 @@
             gap: 20px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 5px;
-            background-color: rgba(255, 255, 255, 0.1);
+            background: #181718; /* Lighter gray */
         }
 
         .match-container.win {
-            background-color: rgba(72, 239, 128, 0.2);
+            background-color: #2E4C3F;
         }
 
         .match-container.loss {
             background-color: rgba(239, 72, 72, 0.2);
+        }
+
+        .profile-level {
+            color: #ffd700; /* Gold for prominence */
         }
 
         .match-header img {
@@ -220,7 +421,6 @@
     </style>
 </head>
 <body>
-
     <div class="search-bar-container">
         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="search-logo">
         <form action="/search" method="POST" class="search-form">
@@ -228,27 +428,31 @@
             <input type="text" name="tag_line" placeholder="#NA1" required>
             <button type="submit">Search</button>
         </form>
-    </div>    
-    
+    </div>
 
-    <div class="container">
-        <!-- Left Section -->
-        <div class="left-section">
-            <div class="profile-card">
-                <h2>Summoner</h2>
-                <p><strong>Riot ID:</strong> {{ riot_id.gameName }}#{{ riot_id.tagLine }}</p>
-                <p><strong>Level:</strong> {{ summoner_info.summonerLevel }}</p>
+    <div class="summoner-profile-container">
+        <div class="profile-icon-container">
+            <img src="http://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/{{ summoner_info.profileIconId }}.png" alt="Profile Icon" class="profile-icon-img">
+            <p class="profile-level">{{ summoner_info.summonerLevel }}</p>
+        </div>
+        <div class="profile-details-container">
+            <div class="user-info">
+                <span class="summoner-name">{{ riot_id.gameName }}</span>
+                <span class="summoner-tag">#{{ riot_id.tagLine }}</span>
             </div>
+            <button onclick="refreshMatches()" class="refresh-button">Update</button>
+            <p id="lastUpdated" class="last-updated">Last updated: {{ last_updated or "Never" }}</p>
+        </div>
+    </div>
 
-            <div class="refresh-container">
-                <button onclick="refreshMatches()" id="refreshButton">Refresh Matches</button>
-            </div>              
-
-            <div class="rank-card">
+    <div class="main-container">
+        <!-- Left Section -->
+        <div class="left-container">
+            <div class="ranked-stats">
                 <h2>Ranked Stats</h2>
                 {% if ranked_stats %}
                 <p><strong>Rank:</strong> {{ ranked_stats.tier }} {{ ranked_stats.rank }}</p>
-                <p><strong>MMR:</strong> {{ mmr_data.estimated_mmr or 'N/A' }} {{mmr_data.rank_label}}</p>
+                <p><strong>MMR:</strong> {{ mmr_data.estimated_mmr or 'N/A' }} {{ mmr_data.rank_label }}</p>
                 <p><strong>Wins:</strong> {{ ranked_stats.wins }}</p>
                 <p><strong>Losses:</strong> {{ ranked_stats.losses }}</p>
                 <p><strong>Win Rate:</strong> {{ (ranked_stats.wins / (ranked_stats.wins + ranked_stats.losses) * 100) | round(2) }}%</p>
@@ -256,37 +460,36 @@
                 <p>No ranked stats available.</p>
                 {% endif %}
             </div>
-            
-            <!-- New Card for Most Played Champions -->
-            <div class="champion-stats-card">
+            <div class="recently-played-champions">
                 <h2>Recently Played Champions</h2>
-                <h5>Past 20 Games</h5>
-                <ul class="champion-stats-list">
+                <div class="champion-list">
                     {% for champion in most_played_champions %}
-                    <li class="champion-stats-item">
+                    <div class="champion-item">
+                        <img 
+                            src="http://ddragon.leagueoflegends.com/cdn/14.23.1/img/champion/{{ champion.champion }}.png" 
+                            alt="{{ champion.champion }}" 
+                            class="champion-icon">
                         <span class="champion-name">{{ champion.champion }}</span>
-                        <span>{{ champion.games_played }} games</span>
-                        <span>{{ champion.winrate }} win rate</span>
-                    </li>
+                        <span class="games-played">{{ champion.games_played }} games</span>
+                        <span class="win-rate">{{ champion.winrate }} win rate</span>
+                    </div>
                     {% endfor %}
-                </ul>
+                </div>
             </div>
         </div>
-  
-
+    
         <!-- Right Section -->
-        <div class="right-section">
+        <div class="right-container">
             <h2>Match History</h2>
             <div class="match-history-list">
                 {% for match in user_match_details %}
                 <div class="match-container {% if match.user_data.win %}win{% else %}loss{% endif %}">
-                    <!-- Champion Icon -->
                     <div class="match-header">
-                        <img src="{{ match.user_data.champion_icon }}" 
-                             alt="{{ match.user_data.championName }}" 
-                             onerror="this.src='https://via.placeholder.com/50?text=?'">
+                        <img 
+                            src="{{ match.user_data.champion_icon }}" 
+                            alt="{{ match.user_data.championName }}" 
+                            onerror="this.src='https://via.placeholder.com/50?text=?'">
                     </div>
-                    <!-- Match Details -->
                     <div class="match-details">
                         <p><strong>Champion:</strong> {{ match.user_data.championName }}</p>
                         <p><strong>K/D/A:</strong> {{ match.user_data.kills }}/{{ match.user_data.deaths }}/{{ match.user_data.assists }}</p>
@@ -302,11 +505,12 @@
             <div class="load-more">
                 <button onclick="loadMoreMatches()">Load More Matches</button>
             </div>
-
+            
             <div class="loading-spinner">
                 <div class="spinner"></div>
                 <p>Loading more matches...</p>
             </div>
+
         </div>
     </div>
 
@@ -360,20 +564,30 @@
                 .then((data) => {
                     if (data.message) {
                         alert(data.message); // Display the response message
-                        if (data.new_matches) {
-                            // Update the right container with new matches
-                            location.reload(); // Reload the page to fetch updated match history
+        
+                        // Update the Last Updated text
+                        if (data.last_updated) {
+                            const lastUpdatedElement = document.getElementById("lastUpdated");
+                            lastUpdatedElement.innerText = `Last updated: just now`;
+                        }
+        
+                        // Append new matches if available
+                        if (data.new_matches && data.new_matches.length > 0) {
+                            appendMatches(data.new_matches);
                         }
                     }
                 })
                 .catch((error) => {
                     console.error("Error refreshing matches:", error);
+                    alert("Failed to refresh matches. Please try again.");
                 });
         }
         
         
         function appendMatches(matches) {
             const matchContainer = document.querySelector(".match-history-list");
+            matchContainer.innerHTML = ""; // Clear the list for refreshed data
+        
             matches.forEach((match) => {
                 const matchElement = document.createElement("div");
                 matchElement.className = `match-container ${
@@ -397,6 +611,7 @@
                 matchContainer.appendChild(matchElement);
             });
         }
+        
     </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template, session
 from firebase_admin import credentials, db
-import logging
+from datetime import datetime, timezone
 from riot_client import (
     PLATFORM_TO_GLOBAL,
     get_account_by_riot_id,
@@ -16,7 +16,8 @@ from riot_client import (
     sanitize_user_id,
     save_match_to_database,
     get_stored_match_ids,
-    fetch_initial_matches
+    fetch_initial_matches,
+    calculate_time_ago
 )
 
 app = Flask(__name__)
@@ -39,9 +40,28 @@ def search():
         user_data = ref.get()
 
         if user_data:
+            # Parse the last updated time
+            last_updated_str = user_data.get("last_updated")
+            last_updated = None
+            if last_updated_str:
+                try:
+                    last_updated = datetime.fromisoformat(last_updated_str)
+                except ValueError:
+                    print(f"Invalid last_updated format: {last_updated_str}")
+
+            # Calculate "time ago" for last updated
+            last_updated_text = "Never"
+            if last_updated:
+                last_updated_text = calculate_time_ago(int(last_updated.timestamp() * 1000))
+            
             # Existing user: Load matches from the database
             print(f"User {user_id} already exists. Loading from database.")
             match_history = user_data.get("match_history", [])[:20]  # Get only the latest 20 matches
+            
+            for match in match_history:
+                if "game_start_timestamp" in match:
+                    match["game_time_ago"] = calculate_time_ago(match["game_start_timestamp"])
+                    
             return render_template(
                 "result.html",
                 riot_id={"gameName": game_name, "tagLine": tag_line},
@@ -52,6 +72,7 @@ def search():
                 region=region,
                 mmr_data=user_data.get("mmr_data", {}),
                 rank=get_rank_by_mmr(user_data.get("mmr_data", {}).get("estimated_mmr", 0)),
+                last_updated = last_updated_text,
             )
 
         # New user: Fetch matches from Riot API
@@ -75,6 +96,11 @@ def search():
         # Fetch the latest 20 ranked matches
         puuid = account_info["puuid"]
         ranked_match_details, stored_match_ids = fetch_initial_matches(puuid, region)
+
+        # Update the "time played ago" for each match
+        for match in ranked_match_details:
+            if "game_start_timestamp" in match:
+                match["game_time_ago"] = calculate_time_ago(match["game_start_timestamp"])
 
         save_user_data_to_realtime_db(
             user_id=user_id,
@@ -160,30 +186,38 @@ def refresh_matches():
         # Fetch recent matches
         new_match_ids = []
         match_history = get_match_history_paged(puuid, count=20, region=PLATFORM_TO_GLOBAL.get(request.json.get("region", "na1")))
-        
+
+        new_match_details = []
         for match_id in match_history:
             if match_id in stored_match_ids:
                 break  # Stop at the first match already in stored_match_ids
             match_details = get_user_match_details(puuid, match_id, PLATFORM_TO_GLOBAL[request.json.get("region", "na1")])
             if match_details and match_details.get("game_mode") == "CLASSIC":
+                match_details["game_time_ago"] = calculate_time_ago(match_details.get("game_start_timestamp"))
                 new_match_ids.append(match_id)
+                new_match_details.append(match_details)
 
+        # Update the database
+        last_updated = datetime.now(timezone.utc).isoformat()
+        ref.child("last_updated").set(last_updated)
         if new_match_ids:
-            # Update database with new matches
             stored_match_ids.update(new_match_ids)
             ref.child("stored_match_ids").set(list(stored_match_ids))
-            ref.child("match_history").set(
-                [
-                    get_user_match_details(puuid, match_id, PLATFORM_TO_GLOBAL[request.json.get("region", "na1")])
-                    for match_id in new_match_ids[:20]
-                ]
-            )
-            return jsonify({"message": f"{len(new_match_ids)} new matches added!", "new_matches": new_match_ids})
+            ref.child("match_history").set(new_match_details + user_data.get("match_history", [])[:20])
+            ref.child("last_updated").set(last_updated)
 
-        return jsonify({"message": "No new matches"})
+            return jsonify({
+                "message": f"{len(new_match_ids)} new matches added!",
+                "new_matches": new_match_ids,
+                "last_updated": "just now"
+            })
+
+        # No new matches
+        return jsonify({"message": "No new matches", "last_updated": "just now"})
     except Exception as e:
         print("Error in refresh_matches:", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
