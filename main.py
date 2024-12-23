@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template, session
 from firebase_admin import credentials, db
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import random
 from riot_client import (
     PLATFORM_TO_GLOBAL,
     get_account_by_riot_id,
@@ -218,7 +219,44 @@ def refresh_matches():
         print("Error in refresh_matches:", e)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/ranked_graph', methods=['GET'])
+def ranked_graph():
+    """
+    Endpoint to retrieve ranked history data for the graph.
+    Supports sorting by days or weeks.
 
+    Query Parameters:
+        timeframe (str): "day" or "week" to determine the data interval.
+    """
+    # Get the timeframe from the query parameters
+    timeframe = request.args.get('timeframe', 'day')
+
+    # Define rank tiers for demonstration
+    rank_tiers = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Grandmaster", "Challenger"]
+    divisions = ["IV", "III", "II", "I"]
+
+    if timeframe == 'day':
+        # Generate data for the last 12 days
+        labels = [(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(12)][::-1]
+        points = [random.randint(0, 100) for _ in range(12)]  # Random LP values
+        ranks = [f"{random.choice(rank_tiers)} {random.choice(divisions)}" for _ in range(12)]
+    elif timeframe == 'week':
+        # Generate data for the last 10 weeks
+        labels = [(datetime.now() - timedelta(weeks=i)).strftime('Week %U') for i in range(10)][::-1]
+        points = [random.randint(0, 100) for _ in range(10)]  # Random LP values
+        ranks = [f"{random.choice(rank_tiers)} {random.choice(divisions)}" for _ in range(10)]
+    else:
+        return jsonify({"error": "Invalid timeframe. Use 'day' or 'week'."}), 400
+
+    # Shorten rank format (e.g., "Diamond IV" -> "D4")
+    shortened_ranks = [f"{rank[0]}{rank.split()[-1]}" for rank in ranks]
+
+    # Return data in JSON format
+    return jsonify({
+        "labels": labels,
+        "points": points,
+        "ranks": shortened_ranks
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)

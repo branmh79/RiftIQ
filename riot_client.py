@@ -46,7 +46,6 @@ def get_account_by_riot_id(game_name, tag_line, region="na1"):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         account_data = response.json()
-        print("Account Info Response:", account_data)  # Debug output
         return account_data
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err} - {response.text}")
@@ -189,7 +188,6 @@ def get_ranked_stats_by_summoner_id(summoner_id, platform_region="na1"):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         ranked_stats = response.json()
-        print("Ranked Stats Response:", ranked_stats)  # Debugging
         return ranked_stats
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err} - {response.text}")
@@ -209,7 +207,6 @@ def get_summoner_info_by_puuid(puuid, region="na1"):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         summoner_data = response.json()
-        print("Summoner Info Response:", summoner_data)  # Debug output
         return summoner_data
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err} - {response.text}")

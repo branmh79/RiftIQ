@@ -15,19 +15,17 @@
 
         .search-bar-container {
             display: flex;
-            justify-content: center;
-            align-items: center;
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
             gap: 15px;
-            position: absolute;
-            top: 50px;
+            position: absolute; /* Keep it positioned relative to the viewport */
+            top: 50px; /* Adjust top positioning as needed */
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%); /* Center align the search bar */
             width: 60%;
             max-width: 1000px;
-            margin-bottom: 20px; /* Add space below the search bar */
         }
-        
-        
+    
         .search-logo {
             height: 50px;  /* Adjust to the height of the search bar */
             width: auto;
@@ -71,22 +69,27 @@
 
         .container {
             display: flex;
-            flex-direction: row;
-            gap: 10px;
-            padding 0 100px;
+            flex-direction: column;
+            gap: 20px; /* Space between child containers */
+            padding: 20px; /* Ensure consistent padding inside the parent container */
             margin-top: 30px; /* Add margin to account for the fixed search bar */
         }
 
         .refresh-button {
             align-self: flex-start; /* Align button to the left */
+            width: 80px; /* Keep the button's fixed width */
+            height: 35px; /* Maintain consistent button height */
+            display: flex;
+            justify-content: center; /* Center content inside the button */
+            align-items: center; /* Align spinner and text vertically */
             background-color: #e63946;
             color: white;
-            padding: 10px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
+            margin-bottom: 0px;
         }
         
         .refresh-button:hover {
@@ -96,12 +99,12 @@
         .refresh-container {
             display: flex;
             flex-direction: column; /* Stack the button and text vertically */
-            align-items: flex-end;  /* Align to the right */
-            margin-top: 4px;
+            align-items: flex-start;  /* Align to the right */
         }
         
         .last-updated {
-            margin-top: 10px;
+            margin-top: 0; /* Remove top margin */
+            margin-bottom: 0; /* Remove bottom margin */
             font-size: 12px;
             color: #ffffff;
         }
@@ -114,13 +117,12 @@
 
         .profile-icon-container {
             display: flex;
-            flex-direction: column; /* Stack icon and level */
-            align-items: center;
-            gap: 5px; /* Minimal spacing between icon and level */
-            margin: 0; /* Remove extra margin */
-            padding: 0; /* Ensure no padding causes extra space */
+            flex-direction: column; /* Stack icon and level vertically */
+            align-items: center; /* Center-align contents */
+            gap: 5px; /* Space between icon and level */
+            flex: 0 0 auto; /* Prevent resizing */
         }
-
+        
         .profile-text {
             flex: 1; /* Allow the text to take up remaining space */
         }
@@ -140,7 +142,6 @@
             gap: 20px; /* Space between the sections */
             max-width: 400px; /* Limit the width of the left container */
         }
-
 
         .ranked-stats {
             background: #181718; /* Lighter gray */
@@ -183,7 +184,6 @@
         .rank-card h2 {
             margin-bottom: 10px;
         }
-    
 
         .profile-icon {
             margin-right: 10px;
@@ -204,37 +204,37 @@
             color: #f4a261;
         }
         
-
         .profile-details-container {
             display: flex;
-            flex-direction: column; /* Stack name and button vertically */
-            justify-content: flex-start; /* Align items to the top */
-            flex: 1; /* Allow the container to expand */
-            margin-left: 20px; /* Space between icon and details */
+            flex-direction: column; /* Stack name, button, and updated text vertically */
+            justify-content: flex-start;
+            flex: 1; /* Allow this section to expand */
+            gap: 10px; /* Space between elements */
         }
 
         .user-info {
             display: flex;
             align-items: baseline; /* Align name and tagline on their baseline */
             gap: 5px; /* Space between username and tagline */
-            margin-bottom: 10px; /* Add some space below the name and tagline */
+            margin-bottom: 0px; /* Add some space below the name and tagline */
         }
 
         .summoner-profile-container {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            padding: 20px;
-            margin: 20px 0 20px; /* Center horizontally using main-container's padding */
+            flex-direction: row; /* Align items horizontally */
+            align-items: flex-start; /* Align items to the top */   
+            gap: 20px; /* Space between sections */
+            padding: 20px 20px 10px; /* Adjust bottom padding */
+            margin-top: 20px; /* Increase distance from the search bar */
+            margin-bottom: 20px; /* Default spacing beneath the container */
+            position: relative; /* Make this the reference for absolute positioning */
             background: #181718;
             border-radius: 15px;
             box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
-            width: 100%; /* Match the width of main-container */
-            box-sizing: border-box; /* Ensure padding doesn’t increase width */
+            width: 100%;
+            box-sizing: border-box;
         }
         
-        
-
         .summoner-name {
             font-weight: bold;
             color: #ffffff;
@@ -401,15 +401,29 @@
             align-items: center;
         }
 
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+        .spinner-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px; /* Space between the button and spinner */
         }
 
+        .spinner {
+            position: absolute; /* Overlay spinner on the text */
+            border: 3px solid rgba(0, 0, 0, 0.2); /* Outer border */
+            border-top: 3px solid #ffffff; /* Spinner color */
+            border-radius: 50%;
+            width: 15px; /* Smaller spinner size */
+            height: 15px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+        }
+
+        /* Button Text */
+        #buttonText {
+            position: absolute; /* Overlay text on the spinner */
+        }
+        
         @keyframes spin {
             from {
                 transform: rotate(0deg);
@@ -418,6 +432,78 @@
                 transform: rotate(360deg);
             }
         }
+
+        .tier-graph-controls {
+            position: absolute; /* Position relative to the container */
+            top: 10px; /* Align to the top of the container */
+            right: 10px; /* Align to the right edge */
+            display: flex;
+            gap: 10px; /* Space between buttons */
+            z-index: 10; /* Ensure buttons are above other elements */
+        }
+        
+        .tier-graph-title {
+            text-align: center; /* Center the text */
+            font-size: 1.5em; /* Adjust the font size */
+            font-weight: bold; /* Make the text bold */
+            color: #ffffff; /* White color for visibility */
+            margin-bottom: 10px; /* Space below the title */
+        }
+        
+        .tier-graph-header {
+        display: flex;
+        justify-content: flex-end; /* Align the buttons to the right */
+        align-items: center; /* Vertically align buttons */
+        width: 100%; /* Take the full width of the container */
+        margin-bottom: 10px; /* Space between the header and the graph */
+        }
+
+        #tierGraph {
+            width: 100%; /* Stretch to fill the width of the container */
+            height: 100px; /* Fixed height */
+            max-height: none; /* Prevent height constraints */
+            box-sizing: border-box; /* Include padding and borders in dimensions */
+        }
+
+        .tier-graph-controls {
+            display: flex;
+            justify-content: flex-end; /* Align buttons to the right */
+            gap: 10px; /* Space between buttons */
+            width: 100%; /* Ensure buttons stretch across the container */
+        }
+           
+        .tier-graph-controls h4 {
+            margin: 0; /* Remove default margin from the <h4> element */
+            font-size: 1.3em; /* Adjust font size to match button height */
+            font-weight: bold; /* Optional: Make the title bold */
+            color: #ffffff; /* White text for visibility */
+            margin-top: 3px; /* Moves the block down without affecting internal padding */
+        }
+
+        .tier-graph-controls button {
+            background-color: #e63946;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .tier-graph-controls button:hover {
+            background-color: #d62828;
+        }
+        
+        .tier-graph-container {
+            display: flex;
+            flex-direction: column; /* Stack graph and content vertically */
+            justify-content: stretch;
+            align-items: flex-start;
+            width: 100%; /* Ensure full width of parent container */
+            max-width: 100%; /* Prevent unintended constraints */
+            margin-top: 20px; /* Space between buttons and graph */
+        }
+
     </style>
 </head>
 <body>
@@ -431,20 +517,40 @@
     </div>
 
     <div class="summoner-profile-container">
+        <!-- Profile Icon and Level -->
         <div class="profile-icon-container">
             <img src="http://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/{{ summoner_info.profileIconId }}.png" alt="Profile Icon" class="profile-icon-img">
             <p class="profile-level">{{ summoner_info.summonerLevel }}</p>
         </div>
+    
+        <!-- Name, Tagline, and Update Button -->
         <div class="profile-details-container">
             <div class="user-info">
                 <span class="summoner-name">{{ riot_id.gameName }}</span>
                 <span class="summoner-tag">#{{ riot_id.tagLine }}</span>
             </div>
-            <button onclick="refreshMatches()" class="refresh-button">Update</button>
+            <div class="refresh-container">
+                <button onclick="refreshMatches()" class="refresh-button" id="refreshButton">
+                    <span id="buttonText">Update</span>
+                    <div class="spinner" id="refreshSpinner" style="display: none;"></div>
+                </button>
+            </div>
             <p id="lastUpdated" class="last-updated">Last updated: {{ last_updated or "Never" }}</p>
         </div>
+    
+        <!-- Tier Graph Buttons -->
+        <div class="tier-graph-controls">
+        <h4>Tier Graph</h4>
+            <button onclick="updateGraph('day')">Daily</button>
+            <button onclick="updateGraph('week')">Weekly</button>
+        </div>
+    
+        <!-- Tier Graph -->
+        <div class="tier-graph-container">
+            <canvas id="tierGraph"></canvas>
+        </div>
     </div>
-
+    
     <div class="main-container">
         <!-- Left Section -->
         <div class="left-container">
@@ -514,9 +620,12 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script>
         let matchStartIndex = 20; // Start after the first 20 matches
         let currentMatchCount = {{ user_match_details | length }};
+        let chartInstance; // Declare globally for Chart.js reuse
 
         function loadMoreMatches() {
             const userId = "{{ riot_id.gameName }}#{{ riot_id.tagLine }}";
@@ -548,6 +657,15 @@
         }
 
         function refreshMatches() {
+            const refreshButton = document.getElementById("refreshButton");
+            const buttonText = document.getElementById("buttonText");
+            const refreshSpinner = document.getElementById("refreshSpinner");
+        
+            // Show the spinner and hide the button text
+            buttonText.style.display = "none";
+            refreshSpinner.style.display = "block";
+            refreshButton.disabled = true;
+        
             const userId = "{{ riot_id.gameName }}#{{ riot_id.tagLine }}";
         
             fetch("/refresh_matches", {
@@ -563,7 +681,7 @@
                 .then((response) => response.json())
                 .then((data) => {
                     if (data.message) {
-                        alert(data.message); // Display the response message
+                        alert(data.message);
         
                         // Update the Last Updated text
                         if (data.last_updated) {
@@ -580,9 +698,14 @@
                 .catch((error) => {
                     console.error("Error refreshing matches:", error);
                     alert("Failed to refresh matches. Please try again.");
+                })
+                .finally(() => {
+                    // Restore the button text and hide the spinner
+                    buttonText.style.display = "block";
+                    refreshSpinner.style.display = "none";
+                    refreshButton.disabled = false;
                 });
         }
-        
         
         function appendMatches(matches) {
             const matchContainer = document.querySelector(".match-history-list");
@@ -611,7 +734,130 @@
                 matchContainer.appendChild(matchElement);
             });
         }
+
+        function updateGraph(timeframe) {
+            fetch(`/ranked_graph?timeframe=${timeframe}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update the graph with the received data
+                    createGraph(data);
+                })
+                .catch(error => console.error('Error fetching graph data:', error));
+        }
         
+        function createGraph(data, timeframe) {
+            const canvas = document.getElementById('tierGraph');
+            const ctx = canvas.getContext('2d');
+        
+            // Set canvas dimensions explicitly to maintain a fixed height
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 100;
+        
+            // Destroy the existing chart instance if it exists
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+        
+            // Generate weekly labels dynamically if the timeframe is 'week'
+            const labels =
+                timeframe === 'week'
+                    ? generateWeeklyDates() // Custom weekly date generation
+                    : data.labels; // Daily labels passed from backend
+        
+            // Create the graph
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Rank Progression',
+                        data: data.points,
+                        borderColor: '#ffd700', // Gold for the line
+                        borderWidth: 2,
+                        fill: false,
+                        pointBackgroundColor: '#ffffff', // Points on the graph
+                        pointRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: false, // Disable resizing
+                    maintainAspectRatio: false, // Allow fixed height and width
+                    plugins: {
+                        legend: {
+                            display: false // Remove legend
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const rank = data.ranks[context.dataIndex];
+                                    const lp = context.raw;
+                                    return `${rank} (${lp} LP)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end', // Position the label relative to the point (above the point)
+                            align: 'top', // Align the label above the point
+                            formatter: function (value, context) {
+                                const rank = data.ranks[context.dataIndex];
+                                const lp = value;
+                                return `${rank}\n${lp} LP`; // Display rank and LP
+                            },
+                            color: '#ffffff', // Label color
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            offset: -10 // Optional: Add extra spacing above the point
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: false // Remove X-axis label
+                            },
+                            ticks: {
+                                callback: function (value) {
+                                    const label = this.getLabelForValue(value);
+                                    if (label.includes('.')) {
+                                        return label; // Weekly points already formatted
+                                    }
+                                    // Convert date to "MM.DD" for daily points
+                                    const [year, month, day] = label.split('-');
+                                    return `${parseInt(month)}.${parseInt(day)}`;
+                                }
+                            },
+                        },
+                        y: {
+                            title: {
+                                display: false // Remove Y-axis label
+                            },
+                            min: 0, // Set the minimum value for the Y-axis
+                            max: 200, // Set the maximum value for the Y-axis (adjust based on your data)
+                            ticks: {
+                                display: false // Remove vertical ticks entirely
+                            },
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels] // Add the dataLabels plugin
+            });
+        }
+        
+        // Helper function for weekly dates
+        function generateWeeklyDates() {
+            const weeks = [];
+            const today = new Date();
+            for (let i = 0; i < 10; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i * 7);
+                const month = date.getMonth() + 1; // JavaScript months are 0-indexed
+                const day = date.getDate();
+                weeks.push(`${month}.${day}`);
+            }
+            return weeks.reverse();
+        }
+
     </script>
 </body>
 </html>
