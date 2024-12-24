@@ -627,9 +627,20 @@
         let currentMatchCount = {{ user_match_details | length }};
         let chartInstance; // Declare globally for Chart.js reuse
 
+        function romanToNumber(roman) {
+            const romanNumerals = {
+                'I': 1,
+                'II': 2,
+                'III': 3,
+                'IV': 4,
+                'V': 5,
+            };
+            return romanNumerals[roman] || roman;
+        }
+        
         function loadMoreMatches() {
             const userId = "{{ riot_id.gameName }}#{{ riot_id.tagLine }}";
-            const startIndex = currentMatchCount; // Tracks the current number of matches displayed
+            const startIndex = document.querySelectorAll('.match-container').length; // Count current displayed matches
         
             fetch("/load_more", {
                 method: "POST",
@@ -644,17 +655,16 @@
                 .then((response) => response.json())
                 .then((data) => {
                     if (data.message) {
-                        // Display the message if no more matches are available
-                        alert(data.message);
+                        alert(data.message); // No more matches to load
                     } else if (data.matches) {
-                        appendMatches(data.matches);
-                        currentMatchCount += data.matches.length; // Update the count
+                        appendMatches(data.matches); // Add the new matches below existing ones
                     }
                 })
                 .catch((error) => {
                     console.error("Error loading more matches:", error);
                 });
         }
+        
 
         function refreshMatches() {
             const refreshButton = document.getElementById("refreshButton");
@@ -680,19 +690,27 @@
             })
                 .then((response) => response.json())
                 .then((data) => {
+                    if (data.error) {
+                        alert("Failed to refresh matches. Please try again.");
+                        return;
+                    }
+        
                     if (data.message) {
-                        alert(data.message);
+                        alert(data.message); // Show backend message (e.g., "No new matches")
+                    }
         
-                        // Update the Last Updated text
-                        if (data.last_updated) {
-                            const lastUpdatedElement = document.getElementById("lastUpdated");
-                            lastUpdatedElement.innerText = `Last updated: just now`;
-                        }
+                    // Update the Last Updated text
+                    const lastUpdatedElement = document.getElementById("lastUpdated");
+                    lastUpdatedElement.innerText = `Last updated: ${data.last_updated}`;
         
-                        // Append new matches if available
-                        if (data.new_matches && data.new_matches.length > 0) {
-                            appendMatches(data.new_matches);
-                        }
+                    // Clear existing matches from the frontend
+                    const matchContainer = document.querySelector(".match-history-list");
+                    matchContainer.innerHTML = ""; // Clear the list completely
+        
+                    if (data.new_matches && data.new_matches.length > 0) {
+                        appendMatches(data.new_matches); // Append the updated matches
+                    } else if (data.updated_matches && data.updated_matches.length > 0) {
+                        appendMatches(data.updated_matches); // Handle no new matches but updated list
                     }
                 })
                 .catch((error) => {
@@ -707,15 +725,23 @@
                 });
         }
         
+        
+        
+        
         function appendMatches(matches) {
             const matchContainer = document.querySelector(".match-history-list");
-            matchContainer.innerHTML = ""; // Clear the list for refreshed data
         
             matches.forEach((match) => {
+                // Check if the match already exists in the DOM
+                const existingMatch = matchContainer.querySelector(`[data-match-id="${match.match_id}"]`);
+                if (existingMatch) {
+                    return; // Skip if the match already exists
+                }
+        
+                // Create and append the match element
                 const matchElement = document.createElement("div");
-                matchElement.className = `match-container ${
-                    match.user_data.win ? "win" : "loss"
-                }`;
+                matchElement.className = `match-container ${match.user_data.win ? "win" : "loss"}`;
+                matchElement.setAttribute("data-match-id", match.match_id); // Add match ID as a data attribute
                 matchElement.innerHTML = `
                     <div class="match-header">
                         <img src="${match.user_data.champion_icon}" 
@@ -734,130 +760,104 @@
                 matchContainer.appendChild(matchElement);
             });
         }
+        
+        
 
         function updateGraph(timeframe) {
             fetch(`/ranked_graph?timeframe=${timeframe}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Update the graph with the received data
-                    createGraph(data);
+                    createGraph(data, timeframe);
                 })
                 .catch(error => console.error('Error fetching graph data:', error));
         }
+        
         
         function createGraph(data, timeframe) {
             const canvas = document.getElementById('tierGraph');
             const ctx = canvas.getContext('2d');
         
-            // Set canvas dimensions explicitly to maintain a fixed height
+            // Set canvas dimensions explicitly
             canvas.width = canvas.offsetWidth;
-            canvas.height = 100;
+            canvas.height = 100; // Fixed height for better visibility
         
             // Destroy the existing chart instance if it exists
             if (chartInstance) {
                 chartInstance.destroy();
             }
         
-            // Generate weekly labels dynamically if the timeframe is 'week'
-            const labels =
-                timeframe === 'week'
-                    ? generateWeeklyDates() // Custom weekly date generation
-                    : data.labels; // Daily labels passed from backend
-        
             // Create the graph
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: data.labels,
                     datasets: [{
                         label: 'Rank Progression',
                         data: data.points,
-                        borderColor: '#ffd700', // Gold for the line
+                        borderColor: '#ffd700',
                         borderWidth: 2,
                         fill: false,
-                        pointBackgroundColor: '#ffffff', // Points on the graph
+                        pointBackgroundColor: '#ffffff',
                         pointRadius: 4,
                     }]
                 },
                 options: {
-                    responsive: false, // Disable resizing
-                    maintainAspectRatio: false, // Allow fixed height and width
+                    responsive: false,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false // Remove legend
+                            display: false // Hide legend
                         },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
-                                    const rank = data.ranks[context.dataIndex];
-                                    const lp = context.raw;
-                                    return `${rank} (${lp} LP)`;
+                                    const rank = data.ranks[context.dataIndex]; // Rank from backend
+                                    const lp = context.raw; // LP value
+                                    return `${rank} (${lp} LP)`; // Tooltip displays rank and LP
                                 }
                             }
                         },
                         datalabels: {
-                            anchor: 'end', // Position the label relative to the point (above the point)
-                            align: 'top', // Align the label above the point
+                            anchor: 'end', // Position above points
+                            align: 'top', // Align labels above points
                             formatter: function (value, context) {
                                 const rank = data.ranks[context.dataIndex];
                                 const lp = value;
-                                return `${rank}\n${lp} LP`; // Display rank and LP
+                                return `${rank}\n${lp} LP`; // Display rank and LP as the label
                             },
-                            color: '#ffffff', // Label color
+                            color: '#ffffff', // White text color
                             font: {
-                                size: 12,
-                                weight: 'bold'
+                                size: 12, // Adjust label font size
+                                weight: 'bold' // Make labels bold
                             },
-                            offset: -10 // Optional: Add extra spacing above the point
+                            offset: -10 // Add spacing above the points
                         }
                     },
                     scales: {
                         x: {
-                            title: {
-                                display: false // Remove X-axis label
-                            },
                             ticks: {
                                 callback: function (value) {
-                                    const label = this.getLabelForValue(value);
-                                    if (label.includes('.')) {
-                                        return label; // Weekly points already formatted
-                                    }
-                                    // Convert date to "MM.DD" for daily points
-                                    const [year, month, day] = label.split('-');
-                                    return `${parseInt(month)}.${parseInt(day)}`;
+                                    return this.getLabelForValue(value);
                                 }
                             },
                         },
                         y: {
-                            title: {
-                                display: false // Remove Y-axis label
-                            },
-                            min: 0, // Set the minimum value for the Y-axis
-                            max: 200, // Set the maximum value for the Y-axis (adjust based on your data)
+                            min: -14,
+                            max: 200,
                             ticks: {
-                                display: false // Remove vertical ticks entirely
+                                display: false, // Hide Y-axis tick labels
+                                stepSize: 100, // Maintain internal spacing
                             },
+                            grid: {
+                                drawTicks: false, // Hide grid tick marks
+                            }
                         }
                     }
                 },
-                plugins: [ChartDataLabels] // Add the dataLabels plugin
-            });
+                plugins: [ChartDataLabels] // Ensure the plugin is loaded
+            });            
         }
         
-        // Helper function for weekly dates
-        function generateWeeklyDates() {
-            const weeks = [];
-            const today = new Date();
-            for (let i = 0; i < 10; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() - i * 7);
-                const month = date.getMonth() + 1; // JavaScript months are 0-indexed
-                const day = date.getDate();
-                weeks.push(`${month}.${day}`);
-            }
-            return weeks.reverse();
-        }
-
     </script>
 </body>
 </html>

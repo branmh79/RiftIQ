@@ -18,7 +18,10 @@ from riot_client import (
     save_match_to_database,
     get_stored_match_ids,
     fetch_initial_matches,
-    calculate_time_ago
+    calculate_time_ago,
+    generate_daily_dates,
+    generate_weekly_dates,
+    roman_to_int
 )
 
 app = Flask(__name__)
@@ -141,29 +144,28 @@ def load_more_matches():
         ref = db.reference(f"users/{sanitize_user_id(user_id)}/match_history")
         match_history = ref.get() or []
 
-        # Check if there are more matches to load
+        # Validate the start index and fetch matches
         if start >= len(match_history):
             return jsonify({"message": "No more matches to load!"}), 200
 
-        # Fetch the next batch of matches
+        # Fetch matches starting from the given index
         next_matches = match_history[start:start + 20]
 
         # Validate matches
-        validated_matches = []
-        for match in next_matches:
-            if match and isinstance(match, dict) and "user_data" in match and match["user_data"]:
-                validated_matches.append(match)
-            else:
-                print(f"Skipping invalid match data: {match}")
+        validated_matches = [
+            match for match in next_matches
+            if match and isinstance(match, dict) and "user_data" in match and match["user_data"]
+        ]
 
-        # If no validated matches, return a message
         if not validated_matches:
             return jsonify({"message": "No more matches to load!"}), 200
 
         return jsonify({"matches": validated_matches})
+
     except Exception as e:
         print("Error in load_more_matches:", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/refresh_matches", methods=["POST"])
@@ -184,40 +186,56 @@ def refresh_matches():
         if not puuid:
             return jsonify({"error": "PUUID not found in user data."}), 400
 
-        # Fetch recent matches
-        new_match_ids = []
+        # Fetch recent matches from Riot API
         match_history = get_match_history_paged(puuid, count=20, region=PLATFORM_TO_GLOBAL.get(request.json.get("region", "na1")))
 
+        # Fetch recent matches
+        new_match_ids = []
         new_match_details = []
         for match_id in match_history:
             if match_id in stored_match_ids:
-                break  # Stop at the first match already in stored_match_ids
+                continue  # Skip if match is already stored
             match_details = get_user_match_details(puuid, match_id, PLATFORM_TO_GLOBAL[request.json.get("region", "na1")])
             if match_details and match_details.get("game_mode") == "CLASSIC":
                 match_details["game_time_ago"] = calculate_time_ago(match_details.get("game_start_timestamp"))
                 new_match_ids.append(match_id)
                 new_match_details.append(match_details)
 
-        # Update the database
+        # Combine new matches with existing match history
         last_updated = datetime.now(timezone.utc).isoformat()
         ref.child("last_updated").set(last_updated)
+
         if new_match_ids:
             stored_match_ids.update(new_match_ids)
+            combined_match_history = new_match_details + user_data.get("match_history", [])
+            combined_match_history = sorted(
+                combined_match_history,
+                key=lambda x: x.get("game_start_timestamp", 0),
+                reverse=True
+            )  # Sort by timestamp, latest first
             ref.child("stored_match_ids").set(list(stored_match_ids))
-            ref.child("match_history").set(new_match_details + user_data.get("match_history", [])[:20])
-            ref.child("last_updated").set(last_updated)
+            ref.child("match_history").set(combined_match_history)
+
+            # Send the latest 20 matches to the frontend
+            latest_20_matches = combined_match_history[:20]
 
             return jsonify({
                 "message": f"{len(new_match_ids)} new matches added!",
-                "new_matches": new_match_ids,
+                "new_matches": latest_20_matches,
                 "last_updated": "just now"
             })
 
         # No new matches
-        return jsonify({"message": "No new matches", "last_updated": "just now"})
+        return jsonify({
+            "message": "No new matches",
+            "last_updated": "just now",
+            "updated_matches": user_data.get("match_history", [])[:20]  # Latest 20 matches for frontend
+        })
     except Exception as e:
         print("Error in refresh_matches:", e)
         return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/ranked_graph', methods=['GET'])
 def ranked_graph():
@@ -237,19 +255,26 @@ def ranked_graph():
 
     if timeframe == 'day':
         # Generate data for the last 12 days
-        labels = [(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(12)][::-1]
+        labels = generate_daily_dates()
         points = [random.randint(0, 100) for _ in range(12)]  # Random LP values
         ranks = [f"{random.choice(rank_tiers)} {random.choice(divisions)}" for _ in range(12)]
     elif timeframe == 'week':
         # Generate data for the last 10 weeks
-        labels = [(datetime.now() - timedelta(weeks=i)).strftime('Week %U') for i in range(10)][::-1]
+        labels = generate_weekly_dates()
         points = [random.randint(0, 100) for _ in range(10)]  # Random LP values
         ranks = [f"{random.choice(rank_tiers)} {random.choice(divisions)}" for _ in range(10)]
     else:
         return jsonify({"error": "Invalid timeframe. Use 'day' or 'week'."}), 400
 
     # Shorten rank format (e.g., "Diamond IV" -> "D4")
-    shortened_ranks = [f"{rank[0]}{rank.split()[-1]}" for rank in ranks]
+    shortened_ranks = []
+    for rank in ranks:
+        try:
+            tier, division = rank.split()
+            shortened_rank = f"{tier[0]}{roman_to_int(division)}"
+            shortened_ranks.append(shortened_rank)
+        except ValueError:
+            shortened_ranks.append(rank)  # In case of unexpected format
 
     # Return data in JSON format
     return jsonify({

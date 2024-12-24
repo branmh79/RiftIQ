@@ -1,7 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import Counter
 from firebase_admin import db 
 from config import firebase_config # import to initialize db
@@ -592,3 +592,53 @@ def get_stored_match_ids(user_id):
     ref = db.reference(f"users/{sanitize_user_id(user_id)}/matches")
     stored_matches = ref.get() or {}
     return set(stored_matches.keys())
+
+def generate_weekly_dates():
+    today = datetime.now()
+    weeks = []
+
+    print(f"Today's Date: {today.strftime('%Y-%m-%d')}")  # Debugging: Log today's date
+
+    for i in range(10):
+        date = today - timedelta(weeks=i)
+        if not date:
+            print(f"Invalid Date for Week {i + 1}")
+            weeks.append("NaN.NaN")
+            continue
+
+        # Format the date as MM.DD
+        formatted_date = date.strftime('%m.%d')
+        weeks.append(formatted_date)
+
+
+    return weeks[::-1]  # Return reversed for chronological order
+
+def generate_daily_dates():
+    today = datetime.now()
+    days = []
+
+    for i in range(12):
+        date = today - timedelta(days=i)
+        formatted_date = date.strftime('%m.%d')
+        days.append(formatted_date)
+
+    return days[::-1]
+
+def roman_to_int(roman):
+    """
+    Converts a Roman numeral to an integer.
+    Supports basic Roman numerals (e.g., I, II, III, IV).
+    """
+    roman_map = {'I': 1, 'V': 5, 'X': 10}
+    result = 0
+    prev_value = 0
+
+    for char in reversed(roman):
+        value = roman_map[char]
+        if value < prev_value:
+            result -= value
+        else:
+            result += value
+        prev_value = value
+
+    return result
